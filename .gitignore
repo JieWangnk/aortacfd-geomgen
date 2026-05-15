@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Blender autosaves
+*.blend1
+*.blend2
+
+# Generated outputs (run results — re-derivable from specs)
+outputs/
+
+# Large benchmark artefacts (VMTK + our own mesh outputs)
+# Keep benchmarks/{compare.py, README.md, reports, test_cases} — only ignore the big mesh dumps
+benchmarks/vmtk/
+benchmarks/ours/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# AI assistant scratch
+.claude/
+.cursor/
+.aider*

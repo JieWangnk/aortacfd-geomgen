@@ -1,0 +1,92 @@
+{
+  "inputs": {
+    "ours": "ours/bifurcation_murray.stl",
+    "vmtk": "vmtk/bifurcation_murray.stl"
+  },
+  "ours_topology": {
+    "n_vertices": 30099,
+    "n_faces": 60194,
+    "n_edges_unique": 90291,
+    "n_boundary_edges": 0,
+    "n_nonmanifold_edges": 0,
+    "n_components": 1,
+    "is_watertight": true,
+    "is_winding_consistent": true,
+    "lumen_volume_mm3": 47750.254487014165,
+    "surface_area_mm2": 11135.952990941067,
+    "bbox_mm": [
+      135.9280031,
+      20.262105939999998,
+      73.73574061
+    ],
+    "centroid_mm": [
+      75.18793832599933,
+      4.564775005514298e-05,
+      -0.0004783643274290212
+    ]
+  },
+  "vmtk_topology": {
+    "n_vertices": 83840,
+    "n_faces": 167676,
+    "n_edges_unique": 251514,
+    "n_boundary_edges": 0,
+    "n_nonmanifold_edges": 0,
+    "n_components": 1,
+    "is_watertight": true,
+    "is_winding_consistent": true,
+    "lumen_volume_mm3": 57184.990872513445,
+    "surface_area_mm2": 12381.294326826683,
+    "bbox_mm": [
+      150.13818359375,
+      20.028815269470215,
+      75.92452621459961
+    ],
+    "centroid_mm": [
+      76.18825351321345,
+      4.936069572789063e-05,
+      4.359462515825602e-05
+    ]
+  },
+  "ours_quality": {
+    "aspect_ratio_min": 1.0194051639567228,
+    "aspect_ratio_mean": 7.9782310782819135,
+    "aspect_ratio_p95": 12.95711470566797,
+    "aspect_ratio_max": 28464.484892933007,
+    "n_slivers_AR_gt_5": 7995,
+    "n_slivers_AR_gt_20": 1792,
+    "area_min_mm2": 7.30636882624943e-10,
+    "area_mean_mm2": 0.18500104646544616,
+    "area_max_mm2": 10.076949731622632,
+    "area_total_mm2": 11135.952990941067
+  },
+  "vmtk_quality": {
+    "aspect_ratio_min": 1.0052577154721765,
+    "aspect_ratio_mean": 2.506669037574144,
+    "aspect_ratio_p95": 4.198407679895295,
+    "aspect_ratio_max": 5.069256133895145,
+    "n_slivers_AR_gt_5": 1,
+    "n_slivers_AR_gt_20": 0,
+    "area_min_mm2": 0.011711413384071317,
+    "area_mean_mm2": 0.07384058736388441,
+    "area_max_mm2": 0.2907757919767014,
+    "area_total_mm2": 12381.294326826683
+  },
+  "surface_distance": {
+    "hausdorff_mm": 10.11423292573071,
+    "mean_nearest_mm": 0.7968792903634803,
+    "p95_a_to_b_mm": 1.711799694198549,
+    "p95_b_to_a_mm": 5.01720185125336,
+    "n_samples_per_mesh": 50000
+  },
+  "centreline": {
+    "centreline_rms_mm": 5.171379744010446,
+    "centreline_max_mm": 9.84002591261138,
+    "n_slices_used": 50
+  },
+  "deltas": {
+    "volume_diff_mm3": 9434.73638549928,
+    "volume_diff_pct": 19.75850492705769,
+    "area_diff_mm2": 1245.341335885616,
+    "area_diff_pct": 11.18306926132575
+  }
+}

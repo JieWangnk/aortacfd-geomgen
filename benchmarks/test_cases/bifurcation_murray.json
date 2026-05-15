@@ -1,0 +1,26 @@
+{
+  "case_id": "bifurcation_murray",
+  "description": "Symmetric Y-junction with Murray's law, daughter angle 60 deg total.",
+  "type": "bifurcation",
+  "parameters": {
+    "d_parent": 20.0,
+    "L_parent": 80.0,
+    "L_1": 60.0,
+    "L_2": 60.0,
+    "angle_total": 60.0,
+    "asymmetry": 0.0,
+    "use_murray": true,
+    "murray_split": 0.5
+  },
+  "centreline_polyline": [
+    {"point": [0.0, 0.0, 0.0], "radius": 10.0, "label": "inlet"},
+    {"point": [80.0, 0.0, 0.0], "radius": 10.0, "label": "junction"},
+    {"point": [131.96, 0.0, 30.0], "radius": 7.937, "label": "outlet_1"},
+    {"point": [131.96, 0.0, -30.0], "radius": 7.937, "label": "outlet_2"}
+  ],
+  "expected_metrics": {
+    "lumen_volume_mm3": "approx 47000",
+    "n_inlets": 1,
+    "n_outlets": 2
+  }
+}
