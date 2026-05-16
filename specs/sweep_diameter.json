@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "name": "sweep_diameter_10",
+  "_doc": "Linear sweep of main aortic diameter from 22 → 36 mm in 10 steps, holding the rest of the geometry fixed (mild 30% coarctation, default arch). Useful for showing how vessel size alone drives pressure-drop scaling.",
+
+  "mode": "sweep",
+  "geometry": "arch_branched_coarctation",
+  "case_prefix": "dia",
+
+  "sweep": {
+    "param": "diameter",
+    "low": 22.0,
+    "high": 36.0,
+    "n": 10
+  },
+
+  "fixed": {
+    "ascending_length": 45.0,
+    "arch_span": 70.0,
+    "arch_height": 35.0,
+    "descending_length": 80.0,
+    "branch_count": 3,
+    "branch_diameter_ratio": 0.42,
+    "branch_length": 35.0,
+    "branch_spacing": 14.0,
+    "branch_tilt_deg": 60.0,
+    "branch_splay_deg": 22.0,
+    "coarctation_area_reduction": 0.30,
+    "coarctation_length": 25.0,
+    "coarctation_centre_fraction": 0.72
+  }
+}

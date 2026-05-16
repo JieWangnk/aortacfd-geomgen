@@ -55,27 +55,88 @@ python cli.py --spec specs/sample_sobol_50.json --output /tmp/gen_sobol
 → 50 cases sampled from a 6-D parameter space using a scrambled Sobol
 sequence.
 
-## Spec schema
+## How to customise your sweep
+
+Three workflows, pick whichever fits the change you want to make.
+
+### Recipe A — change values in an existing spec
+
+```bash
+cp specs/sweep_severity.json specs/my_sweep.json
+$EDITOR specs/my_sweep.json     # change "sweep.high": 0.5, or any param value
+python cli.py --spec specs/my_sweep.json --output /tmp/my_run
+```
+
+Best when you want to vary the *same* parameter as one of the example specs
+but over a different range (e.g. severity 0→0.5 instead of 0→0.9).
+
+### Recipe B — override at the command line, no file edits
+
+```bash
+python cli.py --spec specs/sweep_severity.json \
+    --param diameter=28 \
+    --param arch_height=40 \
+    --output /tmp/my_run
+```
+
+`--param` is repeatable. In `single` mode it overrides `params`; in `sweep`,
+`sample`, or `grid` mode it overrides `fixed` (so the swept axis is preserved).
+Best for demo-time live tweaks ("watch what happens with a bigger diameter").
+
+### Recipe C — author a new sweep / sample / grid from scratch
+
+```bash
+python cli.py --list-params           # find the parameter name you want
+```
+
+Then copy whichever existing spec is structurally closest, edit its params
+and ranges, and run. The four modes are documented in
+[`PARAMETERS.md`](PARAMETERS.md), one entry per Blender parameter, with
+workshop-sensible ranges.
+
+### Spec schema (reference)
 
 ```json
 {
   "schema_version": "1.0",
   "name": "your_experiment_name",
-  "mode": "single|sweep|sample",
+  "mode": "single|sweep|sample|grid",
   "geometry": "arch_branched_coarctation",
+
   "params": { ... },     // single mode: explicit values
-  "sweep": { ... },      // sweep mode: {param, low, high, n}
-  "params": { ... },     // sample mode: {paramname: {low, high}}
-  "sampler": "sobol|lhs|random",
+                         // sample mode: {paramname: {low, high}}
+
+  "sweep": {             // sweep mode only
+    "param": "...", "low": 0, "high": 1, "n": 10
+  },
+
+  "grid": {              // grid mode only
+    "params": {"name1": [v1, v2], "name2": [v3, v4]}
+  },
+
+  "sampler": "sobol|lhs|random",   // sample mode only
   "n_cases": 50,
   "seed": 42,
-  "fixed": { ... }       // params held constant for all cases
+
+  "fixed": { ... }       // params held constant across all cases
 }
 ```
 
-See `specs/*.json` for working examples. New parameter names go through
-`DIRECT_FLAGS` in [`cli.py`](cli.py) — add a mapping if you want to
-expose a new Blender CLI flag.
+See `specs/*.json` for one working example per mode.
+
+### How not to break things
+
+The validator catches the easy mistakes:
+
+- **Parameter typo** — `"diametr"` → `Error: Unknown parameter 'diametr'.
+  Did you mean 'diameter'?`
+- **Bad range** — `"low": 30, "high": 20` → `Error: low must be < high`
+- **Too few sample cases** — `n_cases: 2` → `Error: n_cases must be at least 4`
+- **Cost runaway** — specs that would produce > 30 cases print a
+  warning with an estimated wall-clock before launching Blender
+
+`PARAMETERS.md` and `python cli.py --list-params` are the single source of
+truth for what parameter names exist and what ranges are sensible.
 
 ## Output per case
 

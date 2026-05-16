@@ -126,6 +126,21 @@ def linear_sweep(low: float, high: float, n: int) -> np.ndarray:
     return np.linspace(low, high, n)
 
 
+def grid_product(params: dict[str, list]) -> list[dict]:
+    """Cartesian product of explicit value lists.
+
+    >>> grid_product({"a": [1, 2], "b": [10, 20]})
+    [{'a': 1, 'b': 10}, {'a': 1, 'b': 20}, {'a': 2, 'b': 10}, {'a': 2, 'b': 20}]
+    """
+    from itertools import product
+
+    if not params:
+        return []
+    names = list(params.keys())
+    values = [params[n] for n in names]
+    return [dict(zip(names, combo)) for combo in product(*values)]
+
+
 __all__ = [
     "Sampler",
     "SobolSampler",
@@ -135,4 +150,5 @@ __all__ = [
     "get_sampler",
     "map_unit_to_physical",
     "linear_sweep",
+    "grid_product",
 ]
