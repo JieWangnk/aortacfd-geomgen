@@ -8,10 +8,12 @@ Blender script + a thin Python CLI that supports three modes:
 - **sample** — Sobol / LHS / uniform-random sampling for ML training data
   or global sensitivity studies
 
-![Example output: branched aortic arch geometry](figures/branched_aorta_geometry.png)
+![Real Block A output — baseline synthetic aorta](figures/synthetic_aorta_geometry.png)
 
-*One geometry produced from a single JSON spec — split into inlet,
-outlet1..N, and wall_aorta patches; ready for AortaCFD-app to mesh
+*An actual `cli.py --spec specs/single_baseline.json` output, rendered
+with Blender's Workbench engine. Parametric arch with three
+supra-aortic branches and a smooth coarctation; split into inlet,
+outlet1..N, and wall_aorta patches and ready for AortaCFD-app to mesh
 and solve.*
 
 Output is per-case folders with already-split inlet/outlet/wall STL
