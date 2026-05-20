@@ -14,6 +14,7 @@ from cli_v2 import (  # noqa: E402
     PARAMETERS,
     _format_params_table,
     _parse_param_override,
+    _resolve_arch_params,
     _validate_distribution,
     apply_param_overrides,
     validate_spec,
@@ -24,9 +25,10 @@ from cli_v2 import (  # noqa: E402
 
 
 def test_parameters_dict_has_expected_count() -> None:
-    # 14 parameters total: 3 radii + 1 taper_mode + 2 lengths + 4 curvature
-    # (R_c, angle, tilt, junction_blend) + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
-    assert len(PARAMETERS) == 14
+    # 16 parameters total: 3 radii + 1 taper_mode + 2 lengths + 4 curvature
+    # (R_c, angle, tilt, junction_blend) + 2 direct curvature alternatives
+    # (arch_span_mm, arch_height_mm) + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
+    assert len(PARAMETERS) == 16
 
 
 def test_every_parameter_has_required_keys() -> None:
@@ -207,7 +209,7 @@ def test_all_shipped_specs_validate(specs_v2_dir: Path) -> None:
     import json
 
     files = sorted(specs_v2_dir.glob("*.json"))
-    assert len(files) >= 7, f"Expected ≥7 example specs in specs_v2/, found {len(files)}"
+    assert len(files) >= 8, f"Expected ≥8 example specs in specs_v2/, found {len(files)}"
     for f in files:
         payload = json.loads(f.read_text())
         validate_spec(payload, source=f.name)
@@ -227,3 +229,73 @@ def test_delta_default_sampling_distribution_matches_synthaorta() -> None:
         assert d["type"] == "normal"
         assert d["mean"] == 1.0
         assert d["std"] == 0.09
+
+
+# ── _resolve_arch_params (direct span+height → R_c+angle inverse) ──────────
+
+
+def test_resolve_arch_passthrough_when_no_alt_params() -> None:
+    """If neither arch_span_mm nor arch_height_mm is in params, return as-is."""
+    p_in = {"r_ascending": 13.7, "arch_R_c": 40.4, "arch_angle_deg": 180.0}
+    p_out = _resolve_arch_params(p_in)
+    assert p_out == p_in
+
+
+def test_resolve_arch_u_arch_matches_canonical() -> None:
+    """U-arch (S=2H): R_c=H, angle=180°."""
+    p = _resolve_arch_params({"arch_span_mm": 80.8, "arch_height_mm": 40.4})
+    assert p["arch_R_c"] == pytest.approx(40.4, abs=1e-9)
+    assert p["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
+    # Direct keys removed
+    assert "arch_span_mm" not in p
+    assert "arch_height_mm" not in p
+
+
+def test_resolve_arch_shallow_120deg() -> None:
+    """S=1.5H → arccos(-0.5) = 120°."""
+    p = _resolve_arch_params({"arch_span_mm": 60.0, "arch_height_mm": 40.0})
+    assert p["arch_R_c"] == pytest.approx(40.0, abs=1e-9)
+    assert p["arch_angle_deg"] == pytest.approx(120.0, abs=1e-6)
+
+
+def test_resolve_arch_quarter_circle_90deg() -> None:
+    """S=H → arccos(0) = 90°."""
+    p = _resolve_arch_params({"arch_span_mm": 30.0, "arch_height_mm": 30.0})
+    assert p["arch_R_c"] == pytest.approx(30.0, abs=1e-9)
+    assert p["arch_angle_deg"] == pytest.approx(90.0, abs=1e-6)
+
+
+def test_resolve_arch_rejects_unpaired() -> None:
+    """Setting only span without height (or vice versa) is an error."""
+    with pytest.raises(ValueError, match="must be set together"):
+        _resolve_arch_params({"arch_span_mm": 80.0})
+    with pytest.raises(ValueError, match="must be set together"):
+        _resolve_arch_params({"arch_height_mm": 40.0})
+
+
+def test_resolve_arch_rejects_span_lt_height() -> None:
+    """Span must be at least equal to height (otherwise θ < 90° which we don't solve)."""
+    with pytest.raises(ValueError, match="must satisfy"):
+        _resolve_arch_params({"arch_span_mm": 30.0, "arch_height_mm": 40.0})
+
+
+def test_resolve_arch_rejects_span_gt_2height() -> None:
+    """Span > 2·height implies over-arched (θ > 180°) — unsolvable from peak height."""
+    with pytest.raises(ValueError, match="must satisfy"):
+        _resolve_arch_params({"arch_span_mm": 90.0, "arch_height_mm": 40.0})
+
+
+def test_resolve_arch_round_trip_through_expand_cases() -> None:
+    """expand_cases should auto-convert span+height to R_c+angle per case."""
+    from cli_v2 import expand_cases
+    spec = {
+        "schema_version": "2.0", "mode": "single", "geometry": "healthy_arch_v2",
+        "case_id": "u", "params": {"arch_span_mm": 80.8, "arch_height_mm": 40.4},
+    }
+    cases = expand_cases(spec)
+    assert len(cases) == 1
+    p = cases[0]["params"]
+    assert "arch_span_mm" not in p
+    assert "arch_height_mm" not in p
+    assert p["arch_R_c"] == pytest.approx(40.4)
+    assert p["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)

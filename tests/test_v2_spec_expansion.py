@@ -120,6 +120,7 @@ def test_unknown_mode_raises() -> None:
     ("spec_name", "expected_n"),
     [
         ("single_baseline_v2.json", 1),
+        ("single_span_height_v2.json", 1),
         ("sweep_r_ascending_v2.json", 10),
         ("sweep_R_c_v2.json", 10),
         ("sweep_arch_angle_v2.json", 10),

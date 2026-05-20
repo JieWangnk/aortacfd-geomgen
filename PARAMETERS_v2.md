@@ -27,6 +27,13 @@ Generated from `cli_v2.py --list-params --markdown`. Defaults and default sample
 | `arch_tilt_deg` | float | `0.0` | -30.0–30.0 | normal(μ=0.0, σ=8.0) | anatomy textbooks — typical leftward tilt 5-15° | Rotation of the arch+descending around the inlet z-axis [deg] |
 | `junction_blend_mm` | float | `12.0` | 0.0–40.0 | (fixed) | — | Cubic-Bezier blend width at each arch junction [mm] (0 = sharp circular-arc corners) |
 
+## Arch curvature (alt direct)
+
+| Parameter | Type | Default | Workshop range | Default distribution | Citation | Description |
+|---|---|---|---|---|---|---|
+| `arch_span_mm` | float | `80.8` | 30.0–120.0 | (fixed) | — | Arch horizontal extent ascending→descending [mm]. Use WITH arch_height_mm to override arch_R_c+angle. |
+| `arch_height_mm` | float | `40.4` | 20.0–60.0 | (fixed) | — | Arch PEAK height above ascending top [mm]. Use WITH arch_span_mm to override arch_R_c+angle. |
+
 ## Non-planar Fourier
 
 | Parameter | Type | Default | Workshop range | Default distribution | Citation | Description |

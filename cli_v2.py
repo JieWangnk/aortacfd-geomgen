@@ -31,6 +31,7 @@ import csv
 import hashlib
 import json
 import logging
+import math
 import os
 import shutil
 import subprocess
@@ -137,6 +138,23 @@ PARAMETERS: dict[str, dict[str, Any]] = {
         "group": "Arch curvature",
         "description": "Cubic-Bezier blend width at each arch junction [mm] "
                        "(0 = sharp circular-arc corners)",
+    },
+    # ── Direct (span, peak-height) alternatives to (R_c, angle) ──────────────
+    # Setting BOTH arch_span_mm and arch_height_mm overrides arch_R_c and
+    # arch_angle_deg via the closed-form inverse (see _resolve_arch_params).
+    # Constraint: arch_height_mm ≤ arch_span_mm ≤ 2·arch_height_mm
+    # (valid for arches with subtended angle θ in [90°, 180°]).
+    "arch_span_mm": {
+        "type": "float", "default": 80.8, "min": 30.0, "max": 120.0,
+        "group": "Arch curvature (alt direct)",
+        "description": "Arch horizontal extent ascending→descending [mm]. "
+                       "Use WITH arch_height_mm to override arch_R_c+angle.",
+    },
+    "arch_height_mm": {
+        "type": "float", "default": 40.4, "min": 20.0, "max": 60.0,
+        "group": "Arch curvature (alt direct)",
+        "description": "Arch PEAK height above ascending top [mm]. "
+                       "Use WITH arch_span_mm to override arch_R_c+angle.",
     },
     # ── Non-planar Fourier (SynthAorta Eq 13) ────────────────────────────────
     # When δ_3 = δ_4 = 0 (the scalar defaults), the centreline stays in the
@@ -481,6 +499,63 @@ def sample_cases(spec: dict[str, Any]) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_arch_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Convert direct (arch_span_mm, arch_height_mm) into (arch_R_c, arch_angle_deg).
+
+    Closed-form inverse, valid for arch subtended angle θ ∈ [90°, 180°]
+    (under-arched or canonical U-arch — i.e., the typical anatomical range).
+    Because peak height = R_c for θ ≥ 90°:
+
+        R_c   = arch_height_mm
+        θ     = arccos(1 − arch_span_mm / arch_height_mm)
+
+    The constraint H ≤ S ≤ 2H (i.e., 30° ≤ θ ≤ 180°-ish) is enforced.
+
+    For over-arched (>180°) cases, users must specify arch_R_c and
+    arch_angle_deg directly — the inverse from peak height is ambiguous
+    above 180° because peak height is clamped at R_c.
+
+    Behaviour:
+      - If neither arch_span_mm nor arch_height_mm in params: passthrough.
+      - If only one is set: ValueError ("specify both or neither").
+      - If both set: replace with arch_R_c and arch_angle_deg, deleting
+        the span/height keys. The Blender generator never sees them.
+    """
+    has_span = "arch_span_mm" in params
+    has_height = "arch_height_mm" in params
+    if not has_span and not has_height:
+        return params
+    if has_span ^ has_height:
+        raise ValueError(
+            "arch_span_mm and arch_height_mm must be set together (or neither). "
+            f"Got span={params.get('arch_span_mm')}, height={params.get('arch_height_mm')}."
+        )
+
+    S = float(params["arch_span_mm"])
+    H = float(params["arch_height_mm"])
+    if H <= 0:
+        raise ValueError(f"arch_height_mm must be > 0, got {H}")
+    if S <= 0:
+        raise ValueError(f"arch_span_mm must be > 0, got {S}")
+    if not (H - 1e-9 <= S <= 2 * H + 1e-9):
+        raise ValueError(
+            f"arch_span_mm ({S}) must satisfy arch_height_mm ≤ span ≤ 2·height, "
+            f"i.e. {H} ≤ {S} ≤ {2*H}. For over-arched cases (θ > 180°) use "
+            f"arch_R_c + arch_angle_deg directly."
+        )
+
+    R_c = H
+    cos_theta = 1.0 - S / H
+    cos_theta = max(-1.0, min(1.0, cos_theta))  # clamp for numerical safety
+    theta_deg = math.degrees(math.acos(cos_theta))
+
+    out = {k: v for k, v in params.items()
+           if k not in ("arch_span_mm", "arch_height_mm")}
+    out["arch_R_c"] = R_c
+    out["arch_angle_deg"] = theta_deg
+    return out
+
+
 def load_spec(path: Path) -> dict[str, Any]:
     payload = json.loads(Path(path).read_text())
     validate_spec(payload, source=f"{path.name}")
@@ -542,6 +617,11 @@ def expand_cases(spec: dict[str, Any]) -> list[dict[str, Any]]:
 
     else:
         raise ValueError(f"spec.mode must be one of single/sweep/sample/grid, got {mode!r}")
+
+    # Convert any direct (arch_span_mm, arch_height_mm) pairs to
+    # (arch_R_c, arch_angle_deg) in-place per case.
+    for c in cases:
+        c["params"] = _resolve_arch_params(c["params"])
 
     return cases
 
