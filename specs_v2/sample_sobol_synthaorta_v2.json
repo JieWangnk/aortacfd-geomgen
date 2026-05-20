@@ -1,0 +1,29 @@
+{
+  "schema_version": "2.0",
+  "name": "sample_sobol_synthaorta_v2_100",
+  "_doc": "256 Sobol samples over a 7-D cube using the SynthAorta paper (Bošnjak et al. 2025) Table I distributions for the radii and arch curvature, plus engineering uniform distributions for the lengths and arch angle. taper_mode held fixed at smoothstep so the cube is purely continuous. N=256 is the Sobol-native power of 2 above the PCE rule-of-thumb (30·dim=210 at 7-D).",
+
+  "mode": "sample",
+  "geometry": "healthy_arch_v2",
+  "case_prefix": "sob",
+
+  "sampler": "sobol",
+  "n_cases": 256,
+  "seed": 42,
+
+  "params": {
+    "r_ascending":      {},
+    "r_arch":           {},
+    "r_descending":     {},
+    "arch_R_c":         {},
+    "arch_angle_deg":   {},
+    "ascending_length": {},
+    "descending_length":{}
+  },
+
+  "fixed": {
+    "taper_mode": "smoothstep",
+    "segments_radial": 64,
+    "curve_samples": 220
+  }
+}

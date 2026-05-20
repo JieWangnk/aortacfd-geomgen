@@ -1,0 +1,31 @@
+{
+  "schema_version": "2.0",
+  "name": "sample_sobol_synthaorta_nonplanar_v2_100",
+  "_doc": "256 Sobol samples over a 9-D cube — the 7 marginals of sample_sobol_synthaorta_v2.json PLUS the two SynthAorta non-planar Fourier multipliers δ_3 and δ_4 (Bošnjak et al. 2025, Table I; Eq 13). With δ_3, δ_4 ~ Normal(1, 0.09), the generated centrelines acquire SynthAorta-level y-axis wobble (~few mm), breaking the strict in-plane behaviour of the planar cohort. taper_mode held fixed at smoothstep. N=256 is the Sobol-native power of 2 just below the 9-D PCE rule-of-thumb (30·dim=270); bump to 512 for stable Sobol indices.",
+
+  "mode": "sample",
+  "geometry": "healthy_arch_v2",
+  "case_prefix": "sobnp",
+
+  "sampler": "sobol",
+  "n_cases": 256,
+  "seed": 42,
+
+  "params": {
+    "r_ascending":      {},
+    "r_arch":           {},
+    "r_descending":     {},
+    "arch_R_c":         {},
+    "arch_angle_deg":   {},
+    "ascending_length": {},
+    "descending_length":{},
+    "delta_3":          {},
+    "delta_4":          {}
+  },
+
+  "fixed": {
+    "taper_mode": "smoothstep",
+    "segments_radial": 64,
+    "curve_samples": 220
+  }
+}

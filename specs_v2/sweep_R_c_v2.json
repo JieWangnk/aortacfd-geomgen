@@ -1,0 +1,28 @@
+{
+  "schema_version": "2.0",
+  "name": "sweep_R_c_v2_10",
+  "_doc": "Sweep arch radius of curvature R_c from 25 mm (tight arch) to 60 mm (elongated arch) in 10 linear steps. Tests arch-curvature effect on secondary flow / WSS, isolated from branches and pathology.",
+
+  "mode": "sweep",
+  "geometry": "healthy_arch_v2",
+  "case_prefix": "Rc",
+
+  "sweep": {
+    "param": "arch_R_c",
+    "low": 25.0,
+    "high": 60.0,
+    "n": 10
+  },
+
+  "fixed": {
+    "r_ascending": 13.7,
+    "r_arch": 13.0,
+    "r_descending": 12.2,
+    "taper_mode": "smoothstep",
+    "ascending_length": 50.0,
+    "arch_angle_deg": 180.0,
+    "descending_length": 200.0,
+    "segments_radial": 64,
+    "curve_samples": 220
+  }
+}

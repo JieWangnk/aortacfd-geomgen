@@ -143,13 +143,24 @@ def split_stl(stl_path: Path | str, output_dir: Path | str | None = None) -> dic
     desc_length = meta["descending_length_mm"]  # noqa: F841
     arch_span = meta["arch_span_mm"]
 
-    inlet_center = np.array([0.0, 0.0, 0.0])
-    inlet_normal = np.array([0.0, 0.0, -1.0])
+    # Explicit cap positions/normals from metadata if present (v2 generator
+    # supplies these so non-180° arches with angled descending columns can
+    # be split correctly). Fall back to the v1 heuristic otherwise.
+    if "inlet_xyz_mm" in meta and "inlet_normal_xyz" in meta:
+        inlet_center = np.array(meta["inlet_xyz_mm"], dtype=float)
+        inlet_normal = np.array(meta["inlet_normal_xyz"], dtype=float)
+    else:
+        inlet_center = np.array([0.0, 0.0, 0.0])
+        inlet_normal = np.array([0.0, 0.0, -1.0])
 
-    desc_x_mask = np.abs(centroids[:, 0] - arch_span) < main_diam
-    outlet_z = centroids[desc_x_mask, 2].min() if desc_x_mask.sum() > 0 else centroids[:, 2].min()
-    outlet_center = np.array([arch_span, 0.0, outlet_z])
-    outlet_normal = np.array([0.0, 0.0, -1.0])
+    if "outlet_xyz_mm" in meta and "outlet_normal_xyz" in meta:
+        outlet_center = np.array(meta["outlet_xyz_mm"], dtype=float)
+        outlet_normal = np.array(meta["outlet_normal_xyz"], dtype=float)
+    else:
+        desc_x_mask = np.abs(centroids[:, 0] - arch_span) < main_diam
+        outlet_z = centroids[desc_x_mask, 2].min() if desc_x_mask.sum() > 0 else centroids[:, 2].min()
+        outlet_center = np.array([arch_span, 0.0, outlet_z])
+        outlet_normal = np.array([0.0, 0.0, -1.0])
 
     cap_specs = [
         # (aortacfd_name, center, normal, radius)

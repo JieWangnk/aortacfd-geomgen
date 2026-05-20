@@ -1,0 +1,28 @@
+{
+  "schema_version": "2.0",
+  "name": "sweep_arch_angle_v2_10",
+  "_doc": "Sweep arch subtended angle from 120° (shallow V-arch) to 200° (slightly over-arched) in 10 linear steps. Tests arch-shape topology effect with R_c held fixed.",
+
+  "mode": "sweep",
+  "geometry": "healthy_arch_v2",
+  "case_prefix": "ang",
+
+  "sweep": {
+    "param": "arch_angle_deg",
+    "low": 120.0,
+    "high": 200.0,
+    "n": 10
+  },
+
+  "fixed": {
+    "r_ascending": 13.7,
+    "r_arch": 13.0,
+    "r_descending": 12.2,
+    "taper_mode": "smoothstep",
+    "ascending_length": 50.0,
+    "arch_R_c": 40.4,
+    "descending_length": 200.0,
+    "segments_radial": 64,
+    "curve_samples": 220
+  }
+}

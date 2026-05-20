@@ -9,6 +9,10 @@ __pycache__/
 
 # Generated outputs (run results — re-derivable from specs)
 outputs/
+output/
+
+# Reference papers / PDFs (kept locally, not version-controlled)
+*.pdf
 
 # IDE / OS
 .vscode/
