@@ -81,7 +81,13 @@ PARAMETERS: dict[str, dict[str, Any]] = {
     },
     "torsion_deg": {
         "type": "float", "default": 0.0, "min": -30.0, "max": 30.0,
-        "group": "Arch", "description": "Arch tilt / torsion around inlet z-axis [deg]",
+        "group": "Arch",
+        "description": "RIGID arch tilt around inlet z-axis [deg] (arch stays planar)",
+    },
+    "twist_deg": {
+        "type": "float", "default": 0.0, "min": -45.0, "max": 45.0,
+        "group": "Arch",
+        "description": "GRADUAL twist along arch [deg] (arch becomes non-planar 3D curve)",
     },
     "ascending_length": {
         "type": "float", "default": 50.0, "min": 40.0, "max": 90.0,
@@ -102,6 +108,7 @@ V3_TO_V2: dict[str, str] = {
     "arch_width_mm": "arch_span_mm",
     "arch_height_mm": "arch_height_mm",
     "torsion_deg": "arch_tilt_deg",
+    "twist_deg": "arch_twist_deg",
     "ascending_length": "ascending_length",
     "descending_length": "descending_length",
 }

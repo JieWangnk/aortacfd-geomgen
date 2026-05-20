@@ -370,6 +370,79 @@ def test_arch_tilt_preserves_distances(v2) -> None:
             f"distance changed at i={i}: {d_before} → {d_after}"
 
 
+def test_arch_twist_zero_is_identity(v2) -> None:
+    """twist_deg=0 must return points unchanged."""
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=80,
+    )
+    out = v2.apply_arch_twist(points, 0.0, geom["n_asc"], geom["n_desc"])
+    for p, q in zip(points, out):
+        assert math.isclose(p.x, q.x, abs_tol=1e-12)
+        assert math.isclose(p.y, q.y, abs_tol=1e-12)
+
+
+def test_arch_twist_ascending_unchanged(v2) -> None:
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=80,
+    )
+    out = v2.apply_arch_twist(points, 30.0, geom["n_asc"], geom["n_desc"])
+    n_asc = geom["n_asc"]
+    for i in range(n_asc):
+        assert math.isclose(points[i].x, out[i].x, abs_tol=1e-12)
+        assert math.isclose(points[i].y, out[i].y, abs_tol=1e-12)
+
+
+def test_arch_twist_descending_gets_full_rotation(v2) -> None:
+    """Last descending point should be rotated by the full twist_deg from
+    its planar position."""
+    import numpy as np
+
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=80,
+    )
+    twist = 30.0
+    out = v2.apply_arch_twist(points, twist, geom["n_asc"], geom["n_desc"])
+    # Last point: planar at (80.8, 0, -150) for default U-arch
+    p_planar = points[-1]
+    p_twisted = out[-1]
+    a = math.radians(twist)
+    expected_x = p_planar.x * math.cos(a) - p_planar.y * math.sin(a)
+    expected_y = p_planar.x * math.sin(a) + p_planar.y * math.cos(a)
+    assert math.isclose(p_twisted.x, expected_x, abs_tol=1e-6)
+    assert math.isclose(p_twisted.y, expected_y, abs_tol=1e-6)
+    # z is preserved (rotation around z-axis)
+    assert math.isclose(p_twisted.z, p_planar.z, abs_tol=1e-12)
+
+
+def test_arch_twist_z_preserved_everywhere(v2) -> None:
+    """All points retain their z-coordinate (rotation is around z-axis)."""
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=80,
+    )
+    out = v2.apply_arch_twist(points, 25.0, geom["n_asc"], geom["n_desc"])
+    for p, q in zip(points, out):
+        assert math.isclose(p.z, q.z, abs_tol=1e-12)
+
+
+def test_arch_twist_makes_arch_nonplanar(v2) -> None:
+    """With twist != 0, some arch points should have non-zero y (the arch
+    no longer lies in y=0)."""
+    import numpy as np
+
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=80,
+    )
+    # Planar arch: all y=0
+    arch_first = geom["n_asc"]
+    arch_last = len(points) - geom["n_desc"] - 1
+    for i in range(arch_first, arch_last + 1):
+        assert abs(points[i].y) < 1e-9
+    # After twist: arch points have non-zero y
+    out = v2.apply_arch_twist(points, 30.0, geom["n_asc"], geom["n_desc"])
+    ys = [out[i].y for i in range(arch_first, arch_last + 1)]
+    assert any(abs(y) > 1e-3 for y in ys)
+
+
 def test_nonplanar_displacement_scales_with_delta(v2) -> None:
     """Doubling delta_4 should ~roughly double its contribution (linear in δ).
 

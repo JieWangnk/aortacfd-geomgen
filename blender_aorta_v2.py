@@ -80,10 +80,18 @@ def parse_args() -> argparse.Namespace:
                         help="Subtended angle of the arch arc [deg]. 180=U-arch, "
                              "<180=shallow, >180=over-arched. Engineering range [120, 200].")
     parser.add_argument("--arch_tilt_deg", type=float, default=0.0,
-                        help="Rotation of the arch+descending segments around the "
+                        help="RIGID rotation of the arch+descending segments around the "
                              "inlet z-axis [deg]. 0=arch lies in xz-plane (default). "
                              ">0=arch tilts toward +y. Anatomically the real aortic "
-                             "arch tilts ~5-15° to the patient's left.")
+                             "arch tilts ~5-15° to the patient's left. Arch stays "
+                             "PLANAR (just in a rotated plane).")
+    parser.add_argument("--arch_twist_deg", type=float, default=0.0,
+                        help="GRADUAL twist around the z-axis along the arch [deg]. "
+                             "0=no twist. Ramps linearly from 0 at the ascending-arch "
+                             "boundary to twist_deg at the arch-descending boundary, "
+                             "then held constant through descending. Result: arch "
+                             "becomes a NON-PLANAR 3D curve (unlike arch_tilt_deg "
+                             "which keeps the arch planar in a rotated plane).")
 
     # Non-planar Fourier multipliers (SynthAorta Eq 13)
     parser.add_argument("--delta_3", type=float, default=0.0,
@@ -248,6 +256,52 @@ def apply_arch_tilt(points: list[Vector], tilt_deg: float,
         rx = dx * cos_a - dy * sin_a
         ry = dx * sin_a + dy * cos_a
         out.append(Vector((pivot.x + rx, pivot.y + ry, p.z)))
+    return out
+
+
+def apply_arch_twist(points: list[Vector], twist_deg: float,
+                      n_asc: int, n_desc: int) -> list[Vector]:
+    """Gradual z-axis rotation that ramps linearly from 0 across the
+    arch region, then is held at ``twist_deg`` through descending.
+
+    Difference from ``apply_arch_tilt``:
+      - ``apply_arch_tilt`` applies a single CONSTANT angle to every
+        arch+descending point — arch stays planar (in a rotated plane).
+      - ``apply_arch_twist`` applies a VARYING angle that increases
+        along the arch — arch becomes a non-planar 3D curve. The
+        descending tube ends up offset in the same direction as
+        arch_tilt would, but the arch path between is helical.
+
+    Both transforms can be applied together; they compose
+    multiplicatively in the rotation group.
+    """
+    if twist_deg == 0.0:
+        return points
+
+    n_total = len(points)
+    arch_first = n_asc                  # first non-ascending centreline point
+    arch_last = n_total - n_desc - 1   # last non-descending centreline point
+    if arch_last < arch_first:
+        return points
+
+    twist_rad = math.radians(twist_deg)
+    denom = max(1, arch_last - arch_first)
+
+    out: list[Vector] = []
+    for i, p in enumerate(points):
+        if i < arch_first:
+            out.append(p)            # ascending — unchanged
+            continue
+        if i > arch_last:
+            angle = twist_rad        # descending — full twist
+        else:
+            progress = (i - arch_first) / denom
+            angle = twist_rad * progress
+        cos_a, sin_a = math.cos(angle), math.sin(angle)
+        # Rotate around global z-axis (which passes through the inlet at origin)
+        rx = p.x * cos_a - p.y * sin_a
+        ry = p.x * sin_a + p.y * cos_a
+        out.append(Vector((rx, ry, p.z)))
     return out
 
 
@@ -652,10 +706,14 @@ def main() -> int:
         junction_blend_mm=args.junction_blend_mm,
     )
 
-    # Rotate arch+descending around inlet z-axis by arch_tilt_deg.
-    # Pivot is the last ascending centreline point (arch_geom["n_asc"]-1).
+    # Rotate arch+descending around inlet z-axis by arch_tilt_deg (rigid).
     centres = apply_arch_tilt(centres, args.arch_tilt_deg,
                               pivot_index=arch_geom["n_asc"] - 1)
+
+    # Gradually twist along the arch by arch_twist_deg (non-planar 3D curve).
+    centres = apply_arch_twist(centres, args.arch_twist_deg,
+                                n_asc=arch_geom["n_asc"],
+                                n_desc=arch_geom["n_desc"])
 
     # SynthAorta non-planar Fourier displacement (skipped when both δ_3=δ_4=0)
     centres = apply_nonplanar_displacement(centres, args.delta_3, args.delta_4)
@@ -709,10 +767,14 @@ def main() -> int:
         outlet_pt = centres[-1]
         outlet_xyz = (outlet_pt.x, outlet_pt.y, outlet_pt.z)
         inlet_xyz = (inlet_pt.x, inlet_pt.y, inlet_pt.z)
-        # Apply the same z-rotation to the planar desc_dir as we did to the points.
+        # Apply the same z-rotation to the planar desc_dir that we applied to
+        # the points: arch_tilt_deg (rigid) plus full arch_twist_deg (gradual
+        # — by the time we reach descending, the twist has accumulated to
+        # the full value).
         planar_desc_dir = arch_geom["desc_dir"]
-        if args.arch_tilt_deg != 0.0:
-            t = math.radians(args.arch_tilt_deg)
+        total_z_rot_deg = args.arch_tilt_deg + args.arch_twist_deg
+        if total_z_rot_deg != 0.0:
+            t = math.radians(total_z_rot_deg)
             cos_t, sin_t = math.cos(t), math.sin(t)
             dx, dy, dz = planar_desc_dir
             desc_dir = (dx * cos_t - dy * sin_t, dx * sin_t + dy * cos_t, dz)
@@ -731,6 +793,7 @@ def main() -> int:
                 "arch_R_c": args.arch_R_c,
                 "arch_angle_deg": args.arch_angle_deg,
                 "arch_tilt_deg": args.arch_tilt_deg,
+                "arch_twist_deg": args.arch_twist_deg,
                 "junction_blend_mm": args.junction_blend_mm,
                 "descending_length": args.descending_length,
                 "delta_3": args.delta_3,

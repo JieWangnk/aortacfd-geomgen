@@ -24,7 +24,8 @@ Generated from `cli_v2.py --list-params --markdown`. Defaults and default sample
 |---|---|---|---|---|---|---|
 | `arch_R_c` | float | `40.4` | 25.0–60.0 | gumbel(loc=40.4, scale=2.4) | Choi 2017; Saitta 2022 (SynthAorta Table I) | Arch radius of curvature [mm] |
 | `arch_angle_deg` | float | `180.0` | 120.0–200.0 | normal(μ=180.0, σ=15.0) | engineering default (Madhwal arch-type classification context) | Subtended angle of the arch arc [deg] |
-| `arch_tilt_deg` | float | `0.0` | -30.0–30.0 | normal(μ=0.0, σ=8.0) | anatomy textbooks — typical leftward tilt 5-15° | Rotation of the arch+descending around the inlet z-axis [deg] |
+| `arch_tilt_deg` | float | `0.0` | -30.0–30.0 | normal(μ=0.0, σ=8.0) | anatomy textbooks — typical leftward tilt 5-15° | RIGID rotation of arch+descending around inlet z-axis [deg] (arch stays planar) |
+| `arch_twist_deg` | float | `0.0` | -45.0–45.0 | normal(μ=0.0, σ=10.0) | engineering default — physiologically plausible helical descending | GRADUAL twist around z-axis along the arch [deg] (arch becomes non-planar) |
 | `junction_blend_mm` | float | `12.0` | 0.0–40.0 | (fixed) | — | Cubic-Bezier blend width at each arch junction [mm] (0 = sharp circular-arc corners) |
 
 ## Arch curvature (alt direct)

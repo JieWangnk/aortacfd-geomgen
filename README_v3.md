@@ -13,9 +13,20 @@ in ~3 seconds.*
 
 *Sweeping `torsion_deg` from -20° to +20° (every other case shown). The
 oblique row barely shows the tilt; the top-down row makes it obvious
-that the descending tube swings around the inlet z-axis. This is v3's
-only out-of-plane mechanism — for SynthAorta-style Fourier wobble, drop
-down to v2.*
+that the descending tube swings around the inlet z-axis as a rigid
+plane rotation.*
+
+![torsion vs twist at 30°](figures/v3_torsion_vs_twist.png)
+
+*Rigid `torsion_deg` (left) vs gradual `twist_deg` (right), both at 30°.
+**Bottom row (top-down) is the money shot:** torsion projects as a
+straight sausage at 30° to the y-axis — the arch is still planar, just
+in a rotated plane. Twist projects as a curved hook — the arch is now
+a non-planar 3D curve, because each centreline point is rotated by a
+different angle linearly from 0 at the ascending top to 30° at the
+descending start. Use `torsion_deg` for the anatomical leftward arch
+tilt; use `twist_deg` for helical descending. They compose if you set
+both.*
 
 | Knob | What it controls | Default |
 |---|---|---|
@@ -23,7 +34,8 @@ down to v2.*
 | `r_outlet` | outlet (descending) radius [mm] | 10.0 |
 | `arch_width_mm` | arch horizontal extent (ascending → descending) [mm] | 90.0 |
 | `arch_height_mm` | arch peak height above ascending top [mm] | 45.0 |
-| `torsion_deg` | arch tilt around the inlet z-axis [deg] | 0.0 |
+| `torsion_deg` | **rigid** arch tilt around the inlet z-axis [deg] (arch stays planar) | 0.0 |
+| `twist_deg` | **gradual** twist along the arch [deg] (arch becomes non-planar 3D curve) | 0.0 |
 | `ascending_length` (optional) | straight ascending length [mm] | 50.0 |
 | `descending_length` (optional) | straight descending length [mm] | 200.0 |
 

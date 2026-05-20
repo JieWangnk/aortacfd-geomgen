@@ -128,10 +128,18 @@ PARAMETERS: dict[str, dict[str, Any]] = {
     "arch_tilt_deg": {
         "type": "float", "default": 0.0, "min": -30.0, "max": 30.0,
         "group": "Arch curvature",
-        "description": "Rotation of the arch+descending around the inlet z-axis [deg]",
+        "description": "RIGID rotation of arch+descending around inlet z-axis [deg] (arch stays planar)",
         "default_dist": {"type": "normal", "mean": 0.0, "std": 8.0,
                          "low": -25.0, "high": 25.0},
         "citation": "anatomy textbooks — typical leftward tilt 5-15°",
+    },
+    "arch_twist_deg": {
+        "type": "float", "default": 0.0, "min": -45.0, "max": 45.0,
+        "group": "Arch curvature",
+        "description": "GRADUAL twist around z-axis along the arch [deg] (arch becomes non-planar)",
+        "default_dist": {"type": "normal", "mean": 0.0, "std": 10.0,
+                         "low": -30.0, "high": 30.0},
+        "citation": "engineering default — physiologically plausible helical descending",
     },
     "junction_blend_mm": {
         "type": "float", "default": 12.0, "min": 0.0, "max": 40.0,
@@ -202,6 +210,7 @@ DIRECT_FLAGS: dict[str, str] = {
     "arch_R_c": "--arch_R_c",
     "arch_angle_deg": "--arch_angle_deg",
     "arch_tilt_deg": "--arch_tilt_deg",
+    "arch_twist_deg": "--arch_twist_deg",
     "junction_blend_mm": "--junction_blend_mm",
     "delta_3": "--delta_3",
     "delta_4": "--delta_4",
