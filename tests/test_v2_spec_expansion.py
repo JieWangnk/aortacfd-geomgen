@@ -123,6 +123,7 @@ def test_unknown_mode_raises() -> None:
         ("sweep_r_ascending_v2.json", 10),
         ("sweep_R_c_v2.json", 10),
         ("sweep_arch_angle_v2.json", 10),
+        ("sweep_arch_tilt_v2.json", 10),
         ("sample_sobol_synthaorta_v2.json", 256),
         ("sample_sobol_synthaorta_nonplanar_v2.json", 256),
     ],

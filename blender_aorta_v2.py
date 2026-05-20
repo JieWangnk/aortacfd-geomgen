@@ -79,6 +79,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--arch_angle_deg", type=float, default=180.0,
                         help="Subtended angle of the arch arc [deg]. 180=U-arch, "
                              "<180=shallow, >180=over-arched. Engineering range [120, 200].")
+    parser.add_argument("--arch_tilt_deg", type=float, default=0.0,
+                        help="Rotation of the arch+descending segments around the "
+                             "inlet z-axis [deg]. 0=arch lies in xz-plane (default). "
+                             ">0=arch tilts toward +y. Anatomically the real aortic "
+                             "arch tilts ~5-15° to the patient's left.")
 
     # Non-planar Fourier multipliers (SynthAorta Eq 13)
     parser.add_argument("--delta_3", type=float, default=0.0,
@@ -206,6 +211,38 @@ _SYNTHAORTA_B1 = -0.453
 _SYNTHAORTA_A2 = 1.517
 _SYNTHAORTA_B2 = 2.699
 _SYNTHAORTA_W = 0.027  # series frequency [1/mm]
+
+
+def apply_arch_tilt(points: list[Vector], tilt_deg: float,
+                     pivot_index: int) -> list[Vector]:
+    """Rotate arch + descending segments around the inlet z-axis by tilt_deg.
+
+    The ascending segment (points[:pivot_index]) stays unchanged on the
+    z-axis. Every point from pivot_index onward (arch + descending) is
+    rotated around the z-axis through the ascending-top pivot point so
+    the tube's continuity at the join is preserved.
+
+    tilt_deg = 0 → no rotation (backwards-compat).
+    tilt_deg > 0 → arch tilts toward +y.
+    """
+    if tilt_deg == 0.0:
+        return points
+
+    angle = math.radians(tilt_deg)
+    cos_a, sin_a = math.cos(angle), math.sin(angle)
+    pivot = points[pivot_index]  # last ascending point (on the z-axis)
+
+    out: list[Vector] = []
+    for i, p in enumerate(points):
+        if i < pivot_index:
+            out.append(p)
+            continue
+        dx = p.x - pivot.x
+        dy = p.y - pivot.y
+        rx = dx * cos_a - dy * sin_a
+        ry = dx * sin_a + dy * cos_a
+        out.append(Vector((pivot.x + rx, pivot.y + ry, p.z)))
+    return out
 
 
 def apply_nonplanar_displacement(points: list[Vector],
@@ -491,6 +528,11 @@ def main() -> int:
         curve_samples=args.curve_samples,
     )
 
+    # Rotate arch+descending around inlet z-axis by arch_tilt_deg.
+    # Pivot is the last ascending centreline point (arch_geom["n_asc"]-1).
+    centres = apply_arch_tilt(centres, args.arch_tilt_deg,
+                              pivot_index=arch_geom["n_asc"] - 1)
+
     # SynthAorta non-planar Fourier displacement (skipped when both δ_3=δ_4=0)
     centres = apply_nonplanar_displacement(centres, args.delta_3, args.delta_4)
 
@@ -543,7 +585,15 @@ def main() -> int:
         outlet_pt = centres[-1]
         outlet_xyz = (outlet_pt.x, outlet_pt.y, outlet_pt.z)
         inlet_xyz = (inlet_pt.x, inlet_pt.y, inlet_pt.z)
-        desc_dir = arch_geom["desc_dir"]
+        # Apply the same z-rotation to the planar desc_dir as we did to the points.
+        planar_desc_dir = arch_geom["desc_dir"]
+        if args.arch_tilt_deg != 0.0:
+            t = math.radians(args.arch_tilt_deg)
+            cos_t, sin_t = math.cos(t), math.sin(t)
+            dx, dy, dz = planar_desc_dir
+            desc_dir = (dx * cos_t - dy * sin_t, dx * sin_t + dy * cos_t, dz)
+        else:
+            desc_dir = planar_desc_dir
         meta = {
             "schema_version": "2.0",
             "generator": "blender_aorta_v2",
@@ -556,6 +606,7 @@ def main() -> int:
                 "ascending_length": args.ascending_length,
                 "arch_R_c": args.arch_R_c,
                 "arch_angle_deg": args.arch_angle_deg,
+                "arch_tilt_deg": args.arch_tilt_deg,
                 "descending_length": args.descending_length,
                 "delta_3": args.delta_3,
                 "delta_4": args.delta_4,

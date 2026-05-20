@@ -124,6 +124,14 @@ PARAMETERS: dict[str, dict[str, Any]] = {
                          "low": 120.0, "high": 200.0},
         "citation": "engineering default (Madhwal arch-type classification context)",
     },
+    "arch_tilt_deg": {
+        "type": "float", "default": 0.0, "min": -30.0, "max": 30.0,
+        "group": "Arch curvature",
+        "description": "Rotation of the arch+descending around the inlet z-axis [deg]",
+        "default_dist": {"type": "normal", "mean": 0.0, "std": 8.0,
+                         "low": -25.0, "high": 25.0},
+        "citation": "anatomy textbooks — typical leftward tilt 5-15°",
+    },
     # ── Non-planar Fourier (SynthAorta Eq 13) ────────────────────────────────
     # When δ_3 = δ_4 = 0 (the scalar defaults), the centreline stays in the
     # xz-plane (backwards-compat with v2 pre-2026-05-20). When sampled around
@@ -169,6 +177,7 @@ DIRECT_FLAGS: dict[str, str] = {
     "descending_length": "--descending_length",
     "arch_R_c": "--arch_R_c",
     "arch_angle_deg": "--arch_angle_deg",
+    "arch_tilt_deg": "--arch_tilt_deg",
     "delta_3": "--delta_3",
     "delta_4": "--delta_4",
     "segments_radial": "--segments_radial",

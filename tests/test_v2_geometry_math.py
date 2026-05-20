@@ -309,6 +309,57 @@ def test_nonplanar_displacement_preserves_xz(v2) -> None:
         assert math.isclose(p.z, q.z, abs_tol=1e-12)
 
 
+def test_arch_tilt_zero_is_identity(v2) -> None:
+    """arch_tilt_deg=0 must return the input points unchanged."""
+    points, _, _ = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=60,
+    )
+    out = v2.apply_arch_tilt(points, tilt_deg=0.0, pivot_index=10)
+    for p, q in zip(points, out):
+        assert math.isclose(p.x, q.x, abs_tol=1e-12)
+        assert math.isclose(p.y, q.y, abs_tol=1e-12)
+        assert math.isclose(p.z, q.z, abs_tol=1e-12)
+
+
+def test_arch_tilt_rotates_arch_and_descending_only(v2) -> None:
+    """Ascending stays on z-axis; arch+descending rotate around z through pivot."""
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=80,
+    )
+    pivot_i = geom["n_asc"] - 1
+    out = v2.apply_arch_tilt(points, tilt_deg=15.0, pivot_index=pivot_i)
+
+    # Ascending segment (i < pivot_i) untouched
+    for i in range(pivot_i):
+        assert math.isclose(points[i].x, out[i].x, abs_tol=1e-12)
+        assert math.isclose(points[i].y, out[i].y, abs_tol=1e-12)
+        assert math.isclose(points[i].z, out[i].z, abs_tol=1e-12)
+    # The pivot point itself is unchanged (rotation centre)
+    assert math.isclose(points[pivot_i].x, out[pivot_i].x, abs_tol=1e-12)
+    assert math.isclose(points[pivot_i].y, out[pivot_i].y, abs_tol=1e-12)
+    # Arch peak (some point after pivot) now has nonzero y (was strictly 0 before)
+    post = [out[i] for i in range(pivot_i + 1, len(out))]
+    assert any(abs(p.y) > 1e-6 for p in post), "tilt 15° produced zero y everywhere"
+    # z unchanged everywhere (rotation is around z-axis)
+    for p, q in zip(points, out):
+        assert math.isclose(p.z, q.z, abs_tol=1e-12)
+
+
+def test_arch_tilt_preserves_distances(v2) -> None:
+    """A rotation must preserve point-to-point distances within the rotated set."""
+    points, _, geom = v2.build_centreline(
+        asc_len=50.0, R_c=40.0, angle_deg=180.0, desc_len=200.0, curve_samples=60,
+    )
+    pivot_i = geom["n_asc"] - 1
+    out = v2.apply_arch_tilt(points, tilt_deg=20.0, pivot_index=pivot_i)
+    # Pairwise distances in the rotated subset (arch + descending) are unchanged
+    for i in range(pivot_i, len(points) - 1):
+        d_before = (points[i + 1] - points[i]).length
+        d_after = (out[i + 1] - out[i]).length
+        assert math.isclose(d_before, d_after, rel_tol=1e-9), \
+            f"distance changed at i={i}: {d_before} → {d_after}"
+
+
 def test_nonplanar_displacement_scales_with_delta(v2) -> None:
     """Doubling delta_4 should ~roughly double its contribution (linear in δ).
 

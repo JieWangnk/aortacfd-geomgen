@@ -24,6 +24,7 @@ Generated from `cli_v2.py --list-params --markdown`. Defaults and default sample
 |---|---|---|---|---|---|---|
 | `arch_R_c` | float | `40.4` | 25.0–60.0 | gumbel(loc=40.4, scale=2.4) | Choi 2017; Saitta 2022 (SynthAorta Table I) | Arch radius of curvature [mm] |
 | `arch_angle_deg` | float | `180.0` | 120.0–200.0 | normal(μ=180.0, σ=15.0) | engineering default (Madhwal arch-type classification context) | Subtended angle of the arch arc [deg] |
+| `arch_tilt_deg` | float | `0.0` | -30.0–30.0 | normal(μ=0.0, σ=8.0) | anatomy textbooks — typical leftward tilt 5-15° | Rotation of the arch+descending around the inlet z-axis [deg] |
 
 ## Non-planar Fourier
 

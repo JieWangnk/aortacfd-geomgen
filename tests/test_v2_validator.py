@@ -24,9 +24,9 @@ from cli_v2 import (  # noqa: E402
 
 
 def test_parameters_dict_has_expected_count() -> None:
-    # 12 parameters total: 3 radii + 1 taper_mode + 2 lengths + 2 curvature
-    # + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
-    assert len(PARAMETERS) == 12
+    # 13 parameters total: 3 radii + 1 taper_mode + 2 lengths + 3 curvature
+    # (R_c, angle, tilt) + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
+    assert len(PARAMETERS) == 13
 
 
 def test_every_parameter_has_required_keys() -> None:
@@ -207,7 +207,7 @@ def test_all_shipped_specs_validate(specs_v2_dir: Path) -> None:
     import json
 
     files = sorted(specs_v2_dir.glob("*.json"))
-    assert len(files) >= 6, f"Expected ≥6 example specs in specs_v2/, found {len(files)}"
+    assert len(files) >= 7, f"Expected ≥7 example specs in specs_v2/, found {len(files)}"
     for f in files:
         payload = json.loads(f.read_text())
         validate_spec(payload, source=f.name)
