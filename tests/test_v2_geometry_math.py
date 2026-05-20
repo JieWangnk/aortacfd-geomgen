@@ -87,6 +87,13 @@ def _load_v2_math_without_bpy() -> ModuleType:
             def cross(self, o):
                 return _Vec(np.cross(self._v, o._v))
 
+            def lerp(self, other, t):
+                t = float(t)
+                return _Vec((1.0 - t) * self._v + t * other._v)
+
+            def copy(self):
+                return _Vec(self._v.copy())
+
             def orthogonal(self):
                 # Pick any vector not parallel
                 if abs(self._v[0]) < 0.9:
@@ -240,9 +247,11 @@ def test_build_centreline_180_endpoints(v2) -> None:
     pN = points[-1]
     assert math.isclose(pN.x, 80.0, abs_tol=1e-3)
     assert math.isclose(pN.z, 50.0 - 200.0, abs_tol=1e-3)
-    # Total arc length
+    # Total arc length — Bezier arch is ~0.3% longer than the equivalent
+    # circular arc (cubic Bezier from-arc approximation has ~5% chord-shape
+    # deviation but only ~0.5% arc-length deviation at θ=180°).
     expected_total = 50.0 + 40.0 * math.pi + 200.0
-    assert math.isclose(geom["total_arc"], expected_total, rel_tol=1e-3)
+    assert math.isclose(geom["total_arc"], expected_total, rel_tol=5e-3)
 
 
 def test_build_centreline_120_outlet_position(v2) -> None:

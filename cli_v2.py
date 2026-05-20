@@ -157,11 +157,11 @@ PARAMETERS: dict[str, dict[str, Any]] = {
     },
     # ── Mesh resolution (NOT the CFD mesh; the Blender output mesh) ──────────
     "segments_radial": {
-        "type": "int", "default": 64, "min": 32, "max": 128,
+        "type": "int", "default": 96, "min": 32, "max": 192,
         "group": "Geometry mesh", "description": "Circumferential ring vertices",
     },
     "curve_samples": {
-        "type": "int", "default": 220, "min": 100, "max": 400,
+        "type": "int", "default": 300, "min": 100, "max": 600,
         "group": "Geometry mesh", "description": "Total centreline sample count",
     },
 }

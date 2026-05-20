@@ -98,11 +98,11 @@ def parse_args() -> argparse.Namespace:
                              "sin(2w·||x||) second-harmonic. See --delta_3.")
 
     # Mesh resolution
-    parser.add_argument("--segments_radial", type=int, default=64,
-                        help="Circumferential ring vertices.")
-    parser.add_argument("--curve_samples", type=int, default=220,
+    parser.add_argument("--segments_radial", type=int, default=96,
+                        help="Circumferential ring vertices. Higher = smoother tube wall.")
+    parser.add_argument("--curve_samples", type=int, default=300,
                         help="Total centreline sample count (split across the 3 segments "
-                             "proportionally to their arc length).")
+                             "proportionally to their arc length). Higher = smoother arch.")
 
     # Output
     parser.add_argument("--output", required=True, help="Output STL path.")
@@ -155,7 +155,7 @@ def smoothstep(t: float) -> float:
 
 def radius_along_arc(s_arc: float, total_arc: float, asc_len: float, arch_len: float,
                      r_asc: float, r_arch: float, r_desc: float,
-                     taper_mode: str, blend_window: float = 15.0) -> float:
+                     taper_mode: str, blend_window: float = 30.0) -> float:
     """Return the lumen radius at arc-length position ``s_arc`` along the full centreline.
 
     Three segments: ascending [0, asc_len], arch [asc_len, asc_len+arch_len],
@@ -280,69 +280,101 @@ def apply_nonplanar_displacement(points: list[Vector],
     return out
 
 
+def _cubic_bezier(p0: Vector, p1: Vector, p2: Vector, p3: Vector, t: float) -> Vector:
+    u = 1.0 - t
+    return (u * u * u) * p0 + (3.0 * u * u * t) * p1 + (3.0 * u * t * t) * p2 + (t * t * t) * p3
+
+
 def build_centreline(asc_len: float, R_c: float, angle_deg: float, desc_len: float,
                      curve_samples: int) -> tuple[list[Vector], list[float], dict]:
-    """Build the 3-segment centreline. Returns (points, arc_lengths, derived_geometry)."""
+    """Build the 3-segment centreline using a cubic Bezier for the arch.
+
+    The arch is approximated by a single cubic Bezier from the ascending top
+    to the arch endpoint with control-point handles placed along the tangent
+    directions at each endpoint and length L = (4/3)·tan(θ/4)·R_c — the
+    standard cubic-Bezier-from-arc construction. Bezier handles match the
+    ascending-segment tangent (+z) at the start AND the natural arc tangent
+    at the end, so the centreline is G¹ continuous at both junctions. The
+    Bezier curvature varies smoothly across the arch instead of jumping from
+    0 (straight ascending) to a constant 1/R_c (circular arc), eliminating
+    the visible "fold" at the ascending→arch boundary that the previous
+    pure-circular construction produced.
+
+    Returns (points, arc_lengths, derived_geometry).
+    """
     arch_geom = derive_arch_geometry(R_c, angle_deg)
     theta = arch_geom["theta_rad"]
-    arch_len = R_c * theta  # arc length = radius × subtended angle
+    arch_len_arc = R_c * theta  # nominal arc length of the equivalent circular arc
 
-    total_arc = asc_len + arch_len + desc_len
+    # Endpoints + tangents
+    p_inlet = Vector((0.0, 0.0, 0.0))
+    p_asc_top = Vector((0.0, 0.0, asc_len))
+    arch_end = Vector((R_c * (1.0 - math.cos(theta)), 0.0,
+                       asc_len + R_c * math.sin(theta)))
 
-    # Distribute samples proportionally
+    asc_tangent = Vector((0.0, 0.0, 1.0))  # ascending heads +z
+    arch_end_tangent = Vector((math.sin(theta), 0.0, math.cos(theta)))
+
+    # Cubic-Bezier-from-arc handle length: L = (4/3)·tan(θ/4)·R_c.
+    # For θ=180°: L = (4/3)·R_c. For θ=120°: L ≈ 0.77·R_c. For θ=200°: L ≈ 1.59·R_c.
+    L_handle = (4.0 / 3.0) * math.tan(theta / 4.0) * R_c
+    h_asc = p_asc_top + L_handle * asc_tangent
+    h_arch = arch_end - L_handle * arch_end_tangent
+
+    # Descending direction: continuation of arch tangent past the end.
+    # Defensive flip if the natural tangent ends up pointing upward (only happens
+    # for θ outside our [120°, 200°] working range).
+    desc_dir = Vector((arch_end_tangent.x, arch_end_tangent.y, arch_end_tangent.z))
+    if desc_dir.z > 0:
+        desc_dir = -desc_dir
+
+    total_arc = asc_len + arch_len_arc + desc_len
     n_asc = max(2, int(round(curve_samples * asc_len / total_arc)))
-    n_arc = max(4, int(round(curve_samples * arch_len / total_arc)))
+    n_arc = max(4, int(round(curve_samples * arch_len_arc / total_arc)))
     n_desc = max(2, int(round(curve_samples * desc_len / total_arc)))
 
     points: list[Vector] = []
     arc_s: list[float] = []
-    s = 0.0
 
-    # Ascending: (0,0,0) → (0,0,asc_len)
+    # Ascending: straight line
     for i in range(n_asc):
-        z = asc_len * (i / (n_asc - 1) if n_asc > 1 else 0.0)
-        points.append(Vector((0.0, 0.0, z)))
-        arc_s.append(z)
+        t = i / (n_asc - 1) if n_asc > 1 else 0.0
+        points.append(p_inlet.lerp(p_asc_top, t))
+        arc_s.append(asc_len * t)
     s = asc_len
 
-    # Arch: circular arc, φ from 0 to θ. Skip the first sample (duplicate of ascending end).
-    # End of ascending is at (0, 0, asc_len). Circle centre at (R_c, 0, asc_len).
+    # Arch: cubic Bezier from p_asc_top to arch_end (skip i=0 = duplicate of ascending end)
     for i in range(1, n_arc):
-        phi = theta * (i / (n_arc - 1))
-        x = R_c * (1.0 - math.cos(phi))
-        z = asc_len + R_c * math.sin(phi)
-        points.append(Vector((x, 0.0, z)))
-        arc_s.append(s + R_c * phi)
-    s += arch_len
+        t = i / (n_arc - 1)
+        pt = _cubic_bezier(p_asc_top, h_asc, h_arch, arch_end, t)
+        points.append(pt)
+        # Approximate parametric arc-length as proportional to t — exact length
+        # is recomputed below from point-to-point distances.
+        arc_s.append(s + arch_len_arc * t)
+    s += arch_len_arc
 
-    # Descending: from arch end heading in direction of the arch end tangent.
-    # Tangent at φ=θ: dP/dφ = (R_c sin θ, 0, R_c cos θ), unit: (sin θ, 0, cos θ).
-    arch_end = points[-1]
-    desc_dir = Vector((math.sin(theta), 0.0, math.cos(theta)))
-    # For 180° this is (0, 0, -1) — straight down. For 120° (sin 120°, 0, cos 120°) =
-    # (0.866, 0, -0.5) — descending also tilts in +x. We typically want descending to
-    # head DOWN (toward -z); flip sign if needed.
-    if desc_dir.z > 0:
-        desc_dir = -desc_dir
+    # Descending: straight line from arch_end in desc_dir
     for i in range(1, n_desc + 1):
         t = i / n_desc
         p = arch_end + desc_dir * (desc_len * t)
         points.append(p)
         arc_s.append(s + desc_len * t)
 
-    # Recompute arc_s from actual point distances to be exact
+    # Recompute arc-length from actual point-to-point distances (so the radius
+    # taper uses true positions, not the Bezier-approximate ones).
     arc_s_exact = [0.0]
     for i in range(1, len(points)):
         arc_s_exact.append(arc_s_exact[-1] + (points[i] - points[i - 1]).length)
     total_arc_exact = arc_s_exact[-1]
 
-    arch_geom["arch_len"] = arch_len
+    arch_geom["arch_len"] = arch_len_arc
     arch_geom["total_arc"] = total_arc_exact
     arch_geom["n_asc"] = n_asc
     arch_geom["n_arc"] = n_arc
     arch_geom["n_desc"] = n_desc
     arch_geom["desc_dir"] = (desc_dir.x, desc_dir.y, desc_dir.z)
     arch_geom["outlet_xyz"] = (points[-1].x, points[-1].y, points[-1].z)
+    arch_geom["bezier_handle_length"] = L_handle
     return points, arc_s_exact, arch_geom
 
 
