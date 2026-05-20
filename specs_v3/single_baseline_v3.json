@@ -1,0 +1,17 @@
+{
+  "schema_version": "3.0",
+  "name": "single_baseline_v3",
+  "_doc": "Five-knob v3 baseline matching outputs/v2_dim/baseline_v2 (the user reference). Width 90, height 45, inlet 14, outlet 10, no torsion. r_arch derived as midpoint (12.0) internally.",
+
+  "mode": "single",
+  "geometry": "healthy_arch_v3",
+  "case_id": "baseline_v3",
+
+  "params": {
+    "r_inlet": 14.0,
+    "r_outlet": 10.0,
+    "arch_width_mm": 90.0,
+    "arch_height_mm": 45.0,
+    "torsion_deg": 0.0
+  }
+}

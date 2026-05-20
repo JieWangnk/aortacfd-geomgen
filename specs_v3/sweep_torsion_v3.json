@@ -1,0 +1,23 @@
+{
+  "schema_version": "3.0",
+  "name": "sweep_torsion_v3_10",
+  "_doc": "Sweep arch torsion from -20° to +20° in 10 steps, holding inlet/outlet radii and arch dimensions fixed at the v3 baseline. Useful for visualising the out-of-plane variation that real aortic arches exhibit (typically 5-15° leftward).",
+
+  "mode": "sweep",
+  "geometry": "healthy_arch_v3",
+  "case_prefix": "tors",
+
+  "sweep": {
+    "param": "torsion_deg",
+    "low": -20.0,
+    "high": 20.0,
+    "n": 10
+  },
+
+  "fixed": {
+    "r_inlet": 14.0,
+    "r_outlet": 10.0,
+    "arch_width_mm": 90.0,
+    "arch_height_mm": 45.0
+  }
+}
