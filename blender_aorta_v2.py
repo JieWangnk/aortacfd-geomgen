@@ -101,8 +101,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--segments_radial", type=int, default=96,
                         help="Circumferential ring vertices. Higher = smoother tube wall.")
     parser.add_argument("--curve_samples", type=int, default=300,
-                        help="Total centreline sample count (split across the 3 segments "
+                        help="Total centreline sample count (split across the 5 sub-segments "
                              "proportionally to their arc length). Higher = smoother arch.")
+    parser.add_argument("--junction_blend_mm", type=float, default=12.0,
+                        help="Length of the cubic-Bezier blend zone inserted at each "
+                             "ascending→arch and arch→descending junction. 0 = no blend "
+                             "(sharp circular-arc corners — visible C² fold). Default "
+                             "12 mm gives a visually smooth transition while keeping the "
+                             "middle of the arch on the exact circular arc.")
 
     # Output
     parser.add_argument("--output", required=True, help="Output STL path.")
@@ -286,82 +292,165 @@ def _cubic_bezier(p0: Vector, p1: Vector, p2: Vector, p3: Vector, t: float) -> V
 
 
 def build_centreline(asc_len: float, R_c: float, angle_deg: float, desc_len: float,
-                     curve_samples: int) -> tuple[list[Vector], list[float], dict]:
-    """Build the 3-segment centreline using a cubic Bezier for the arch.
+                     curve_samples: int, junction_blend_mm: float = 12.0,
+                     ) -> tuple[list[Vector], list[float], dict]:
+    """Build the centreline as 5 sub-segments with cubic-Bezier corner blends.
 
-    The arch is approximated by a single cubic Bezier from the ascending top
-    to the arch endpoint with control-point handles placed along the tangent
-    directions at each endpoint and length L = (4/3)·tan(θ/4)·R_c — the
-    standard cubic-Bezier-from-arc construction. Bezier handles match the
-    ascending-segment tangent (+z) at the start AND the natural arc tangent
-    at the end, so the centreline is G¹ continuous at both junctions. The
-    Bezier curvature varies smoothly across the arch instead of jumping from
-    0 (straight ascending) to a constant 1/R_c (circular arc), eliminating
-    the visible "fold" at the ascending→arch boundary that the previous
-    pure-circular construction produced.
+    Composition (in arc-length order)::
+
+        [Ascending straight] [Blend1] [Circular arc] [Blend2] [Descending straight]
+                              ↑ width = blend/2 each side of the original sharp junction
+
+    The straight ascending portion is shortened by blend/2; the arc starts
+    at φ = blend/(2·R_c) instead of φ = 0. A cubic Bezier with G¹-continuous
+    tangents at both endpoints fills the blend zone. Same construction at
+    the arch→descending join. The middle of the arc remains *exactly* on
+    the circular path (radius R_c), so the geometric arch is still the
+    designed circular arc — only the small junction regions are smoothed.
+
+    junction_blend_mm = 0 reverts to the original sharp ascending/arc/desc
+    composition (backwards-compat for users who want exact corners).
 
     Returns (points, arc_lengths, derived_geometry).
     """
     arch_geom = derive_arch_geometry(R_c, angle_deg)
     theta = arch_geom["theta_rad"]
-    arch_len_arc = R_c * theta  # nominal arc length of the equivalent circular arc
+    arch_len_arc = R_c * theta  # exact circular arc length
+
+    # Clamp the blend width to fit inside every segment.
+    blend = max(0.0, float(junction_blend_mm))
+    blend = min(blend, asc_len * 0.5, desc_len * 0.5, arch_len_arc * 0.5)
+    half = blend * 0.5
+
+    # Convenience: phi range of the blend at the arc end (half-blend in arc length)
+    phi_blend = (half / R_c) if R_c > 0 else 0.0
 
     # Endpoints + tangents
     p_inlet = Vector((0.0, 0.0, 0.0))
-    p_asc_top = Vector((0.0, 0.0, asc_len))
-    arch_end = Vector((R_c * (1.0 - math.cos(theta)), 0.0,
-                       asc_len + R_c * math.sin(theta)))
+    p_asc_top_full = Vector((0.0, 0.0, asc_len))          # original (sharp-corner) top
+    asc_tangent = Vector((0.0, 0.0, 1.0))                 # ascending heads +z
 
-    asc_tangent = Vector((0.0, 0.0, 1.0))  # ascending heads +z
-    arch_end_tangent = Vector((math.sin(theta), 0.0, math.cos(theta)))
+    # Where the *straight* ascending now ends (start of Blend1):
+    p_asc_blend_start = Vector((0.0, 0.0, asc_len - half))
+    # Where the *circular arc* now starts (end of Blend1):
+    p_arc_start = Vector(
+        (R_c * (1.0 - math.cos(phi_blend)), 0.0,
+         asc_len + R_c * math.sin(phi_blend))
+    )
+    arc_start_tangent = Vector(
+        (math.sin(phi_blend), 0.0, math.cos(phi_blend))
+    )
 
-    # Cubic-Bezier-from-arc handle length: L = (4/3)·tan(θ/4)·R_c.
-    # For θ=180°: L = (4/3)·R_c. For θ=120°: L ≈ 0.77·R_c. For θ=200°: L ≈ 1.59·R_c.
-    L_handle = (4.0 / 3.0) * math.tan(theta / 4.0) * R_c
-    h_asc = p_asc_top + L_handle * asc_tangent
-    h_arch = arch_end - L_handle * arch_end_tangent
+    # Where the *circular arc* now ends (start of Blend2):
+    phi_arc_end = theta - phi_blend
+    p_arc_end = Vector(
+        (R_c * (1.0 - math.cos(phi_arc_end)), 0.0,
+         asc_len + R_c * math.sin(phi_arc_end))
+    )
+    arc_end_tangent = Vector(
+        (math.sin(phi_arc_end), 0.0, math.cos(phi_arc_end))
+    )
 
-    # Descending direction: continuation of arch tangent past the end.
-    # Defensive flip if the natural tangent ends up pointing upward (only happens
-    # for θ outside our [120°, 200°] working range).
-    desc_dir = Vector((arch_end_tangent.x, arch_end_tangent.y, arch_end_tangent.z))
+    # Full arch endpoint (where Blend2 lands on the descending tangent line):
+    arch_end_full = Vector(
+        (R_c * (1.0 - math.cos(theta)), 0.0,
+         asc_len + R_c * math.sin(theta))
+    )
+    desc_natural_tangent = Vector(
+        (math.sin(theta), 0.0, math.cos(theta))
+    )
+    # Descending direction (continuation of arch tangent; flip if pointing up)
+    desc_dir = Vector(
+        (desc_natural_tangent.x, desc_natural_tangent.y, desc_natural_tangent.z)
+    )
     if desc_dir.z > 0:
         desc_dir = -desc_dir
+    p_desc_blend_end = arch_end_full + desc_dir * half  # start of descending straight
+    p_outlet = arch_end_full + desc_dir * desc_len
 
-    total_arc = asc_len + arch_len_arc + desc_len
-    n_asc = max(2, int(round(curve_samples * asc_len / total_arc)))
-    n_arc = max(4, int(round(curve_samples * arch_len_arc / total_arc)))
-    n_desc = max(2, int(round(curve_samples * desc_len / total_arc)))
+    # Sample-count allocation across the 5 sub-segments by approximate length.
+    seg_lens = {
+        "asc": max(0.0, asc_len - half),       # straight ascending (shortened)
+        "b1":  blend,                          # Blend1 chord ≈ blend
+        "arc": max(0.0, arch_len_arc - blend), # circular arc (shortened on both ends)
+        "b2":  blend,                          # Blend2 chord ≈ blend
+        "desc": max(0.0, desc_len - half),     # straight descending (shortened)
+    }
+    total_eff = sum(seg_lens.values())
+    def alloc(name: str, floor: int) -> int:
+        return max(floor, int(round(curve_samples * seg_lens[name] / total_eff))) \
+               if total_eff > 0 else floor
+    n_asc = alloc("asc", 2)
+    n_b1  = alloc("b1", 6 if blend > 0 else 0)
+    n_arc = alloc("arc", 4)
+    n_b2  = alloc("b2", 6 if blend > 0 else 0)
+    n_desc = alloc("desc", 2)
 
     points: list[Vector] = []
     arc_s: list[float] = []
+    s = 0.0  # cumulative arc-length so far
 
-    # Ascending: straight line
+    # 1) Ascending straight: p_inlet → p_asc_blend_start
     for i in range(n_asc):
         t = i / (n_asc - 1) if n_asc > 1 else 0.0
-        points.append(p_inlet.lerp(p_asc_top, t))
-        arc_s.append(asc_len * t)
-    s = asc_len
+        points.append(p_inlet.lerp(p_asc_blend_start, t))
+        arc_s.append(seg_lens["asc"] * t)
+    s = seg_lens["asc"]
 
-    # Arch: cubic Bezier from p_asc_top to arch_end (skip i=0 = duplicate of ascending end)
-    for i in range(1, n_arc):
+    # 2) Blend1: cubic Bezier p_asc_blend_start → p_arc_start
+    if blend > 0 and n_b1 > 0:
+        chord = (p_arc_start - p_asc_blend_start).length
+        L = chord / 3.0
+        h0 = p_asc_blend_start + L * asc_tangent
+        h1 = p_arc_start - L * arc_start_tangent
+        for i in range(1, n_b1):  # skip i=0 (duplicate of last ascending point)
+            t = i / (n_b1 - 1)
+            points.append(_cubic_bezier(p_asc_blend_start, h0, h1, p_arc_start, t))
+            arc_s.append(s + blend * t)
+        s += blend
+    else:
+        # No blend zone: p_asc_blend_start == p_asc_top_full and p_arc_start
+        # is also at the ascending top — the points coincide.
+        pass
+
+    # 3) Circular arc: p_arc_start → p_arc_end (φ from phi_blend to phi_arc_end)
+    arc_extent = phi_arc_end - phi_blend
+    for i in range(1, n_arc):  # skip i=0 (duplicate of Blend1 end)
         t = i / (n_arc - 1)
-        pt = _cubic_bezier(p_asc_top, h_asc, h_arch, arch_end, t)
+        phi = phi_blend + arc_extent * t
+        pt = Vector(
+            (R_c * (1.0 - math.cos(phi)), 0.0,
+             asc_len + R_c * math.sin(phi))
+        )
         points.append(pt)
-        # Approximate parametric arc-length as proportional to t — exact length
-        # is recomputed below from point-to-point distances.
-        arc_s.append(s + arch_len_arc * t)
-    s += arch_len_arc
+        arc_s.append(s + (arc_extent * R_c) * t)
+    s += arc_extent * R_c  # = arch_len_arc - blend
 
-    # Descending: straight line from arch_end in desc_dir
+    # 4) Blend2: cubic Bezier p_arc_end → p_desc_blend_end
+    if blend > 0 and n_b2 > 0:
+        chord = (p_desc_blend_end - p_arc_end).length
+        L = chord / 3.0
+        h0 = p_arc_end + L * arc_end_tangent
+        # Use the descending direction for the second handle (G¹ at the
+        # descending side). For θ in [90°, 270°] this matches the natural
+        # arc-end tangent; for shallow θ the defensive flip in desc_dir
+        # would create a discontinuity, but our working range is fine.
+        h1 = p_desc_blend_end - L * desc_dir
+        for i in range(1, n_b2):
+            t = i / (n_b2 - 1)
+            points.append(_cubic_bezier(p_arc_end, h0, h1, p_desc_blend_end, t))
+            arc_s.append(s + blend * t)
+        s += blend
+    else:
+        pass
+
+    # 5) Descending straight: p_desc_blend_end → p_outlet
     for i in range(1, n_desc + 1):
         t = i / n_desc
-        p = arch_end + desc_dir * (desc_len * t)
-        points.append(p)
-        arc_s.append(s + desc_len * t)
+        points.append(p_desc_blend_end + desc_dir * (seg_lens["desc"] * t))
+        arc_s.append(s + seg_lens["desc"] * t)
 
-    # Recompute arc-length from actual point-to-point distances (so the radius
-    # taper uses true positions, not the Bezier-approximate ones).
+    # Recompute arc-length from actual point-to-point distances
     arc_s_exact = [0.0]
     for i in range(1, len(points)):
         arc_s_exact.append(arc_s_exact[-1] + (points[i] - points[i - 1]).length)
@@ -372,9 +461,11 @@ def build_centreline(asc_len: float, R_c: float, angle_deg: float, desc_len: flo
     arch_geom["n_asc"] = n_asc
     arch_geom["n_arc"] = n_arc
     arch_geom["n_desc"] = n_desc
+    arch_geom["n_blend1"] = n_b1
+    arch_geom["n_blend2"] = n_b2
+    arch_geom["junction_blend_mm"] = blend
     arch_geom["desc_dir"] = (desc_dir.x, desc_dir.y, desc_dir.z)
     arch_geom["outlet_xyz"] = (points[-1].x, points[-1].y, points[-1].z)
-    arch_geom["bezier_handle_length"] = L_handle
     return points, arc_s_exact, arch_geom
 
 
@@ -558,6 +649,7 @@ def main() -> int:
         angle_deg=args.arch_angle_deg,
         desc_len=args.descending_length,
         curve_samples=args.curve_samples,
+        junction_blend_mm=args.junction_blend_mm,
     )
 
     # Rotate arch+descending around inlet z-axis by arch_tilt_deg.
@@ -639,6 +731,7 @@ def main() -> int:
                 "arch_R_c": args.arch_R_c,
                 "arch_angle_deg": args.arch_angle_deg,
                 "arch_tilt_deg": args.arch_tilt_deg,
+                "junction_blend_mm": args.junction_blend_mm,
                 "descending_length": args.descending_length,
                 "delta_3": args.delta_3,
                 "delta_4": args.delta_4,

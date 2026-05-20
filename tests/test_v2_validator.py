@@ -24,9 +24,9 @@ from cli_v2 import (  # noqa: E402
 
 
 def test_parameters_dict_has_expected_count() -> None:
-    # 13 parameters total: 3 radii + 1 taper_mode + 2 lengths + 3 curvature
-    # (R_c, angle, tilt) + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
-    assert len(PARAMETERS) == 13
+    # 14 parameters total: 3 radii + 1 taper_mode + 2 lengths + 4 curvature
+    # (R_c, angle, tilt, junction_blend) + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
+    assert len(PARAMETERS) == 14
 
 
 def test_every_parameter_has_required_keys() -> None:

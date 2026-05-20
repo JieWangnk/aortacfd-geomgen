@@ -132,6 +132,12 @@ PARAMETERS: dict[str, dict[str, Any]] = {
                          "low": -25.0, "high": 25.0},
         "citation": "anatomy textbooks — typical leftward tilt 5-15°",
     },
+    "junction_blend_mm": {
+        "type": "float", "default": 12.0, "min": 0.0, "max": 40.0,
+        "group": "Arch curvature",
+        "description": "Cubic-Bezier blend width at each arch junction [mm] "
+                       "(0 = sharp circular-arc corners)",
+    },
     # ── Non-planar Fourier (SynthAorta Eq 13) ────────────────────────────────
     # When δ_3 = δ_4 = 0 (the scalar defaults), the centreline stays in the
     # xz-plane (backwards-compat with v2 pre-2026-05-20). When sampled around
@@ -178,6 +184,7 @@ DIRECT_FLAGS: dict[str, str] = {
     "arch_R_c": "--arch_R_c",
     "arch_angle_deg": "--arch_angle_deg",
     "arch_tilt_deg": "--arch_tilt_deg",
+    "junction_blend_mm": "--junction_blend_mm",
     "delta_3": "--delta_3",
     "delta_4": "--delta_4",
     "segments_radial": "--segments_radial",

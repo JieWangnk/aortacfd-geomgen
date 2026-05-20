@@ -247,11 +247,12 @@ def test_build_centreline_180_endpoints(v2) -> None:
     pN = points[-1]
     assert math.isclose(pN.x, 80.0, abs_tol=1e-3)
     assert math.isclose(pN.z, 50.0 - 200.0, abs_tol=1e-3)
-    # Total arc length — Bezier arch is ~0.3% longer than the equivalent
-    # circular arc (cubic Bezier from-arc approximation has ~5% chord-shape
-    # deviation but only ~0.5% arc-length deviation at θ=180°).
+    # Total arc length — middle of the arch is still a true circular arc,
+    # only the small junction_blend_mm zones at each end are Bezier-blended.
+    # The Bezier blend chord is slightly longer than the original
+    # straight+arc path it replaced, so the total is slightly bigger.
     expected_total = 50.0 + 40.0 * math.pi + 200.0
-    assert math.isclose(geom["total_arc"], expected_total, rel_tol=5e-3)
+    assert math.isclose(geom["total_arc"], expected_total, rel_tol=2e-3)
 
 
 def test_build_centreline_120_outlet_position(v2) -> None:
