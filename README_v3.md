@@ -4,6 +4,19 @@ The shortest path from "I want an aorta with these dimensions" to an STL.
 **Five primary knobs**, two optional length knobs, everything else fixed
 at workshop-quality defaults.
 
+![v3 baseline](figures/v3_baseline_hero.png)
+
+*v3 baseline render. The same 5-knob input produces the STL on the left
+in ~3 seconds.*
+
+![v3 torsion sweep](figures/v3_torsion_oblique_vs_topdown.png)
+
+*Sweeping `torsion_deg` from -20° to +20° (every other case shown). The
+oblique row barely shows the tilt; the top-down row makes it obvious
+that the descending tube swings around the inlet z-axis. This is v3's
+only out-of-plane mechanism — for SynthAorta-style Fourier wobble, drop
+down to v2.*
+
 | Knob | What it controls | Default |
 |---|---|---|
 | `r_inlet` | inlet (ascending) radius [mm] | 14.0 |
@@ -80,6 +93,22 @@ actually received — full traceability for reviewers.
 v3 supports only **single** and **sweep**. For Sobol / LHS / grid sampling,
 use [`cli_v2.py`](./README_v2.md) and the `specs_v2/sample_sobol_synthaorta_*.json`
 specs.
+
+### How many Sobol samples would v3 need (if we added it)?
+
+5-D parameter space is much cheaper than v2's 9-D. Rule-of-thumb:
+
+| Use case | N |
+|---|---|
+| Visual diversity gallery | 64-128 |
+| Marginal validation / pairplot | 128-256 |
+| Sparse-PCE Sobol-index sensitivity (N ≥ 30·dim = 150) | **256** (Sobol-native) |
+| Full-quadratic PCE | 512+ |
+
+**256 is the safe default for 5-D Sobol.** Compute time at ~3 s/case
+gives ~13 min for 256 cases. Currently v3 doesn't expose sample mode —
+file an issue or ask if you need it; in the meantime use v2 with the
+distributions there (and ignore the v2 knobs v3 hides).
 
 ## Validation rules (the closed-form inverse)
 

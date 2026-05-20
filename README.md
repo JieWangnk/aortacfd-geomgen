@@ -1,7 +1,50 @@
 # Aorta geometry generator (Blender)
 
 Parametric synthetic aortic-arch geometries for CFD studies. Standalone
-Blender script + a thin Python CLI that supports three modes:
+Blender script + Python CLI in three flavours of increasing simplicity:
+
+| Variant | Interface | Topology | Use when |
+|---|---|---|---|
+| [**v3**](./README_v3.md) (`cli_v3.py`) | 5 knobs | Healthy arch, no branches | You just want to dial inlet/outlet/W/H/torsion |
+| [**v2**](./README_v2.md) (`cli_v2.py`) | 12-16 knobs + Sobol/LHS sampling | Healthy arch, no branches | ML training data, SynthAorta-comparable studies, sensitivity analysis |
+| [**v1**](./README.md) (`cli.py`) | 21 knobs | Aortic arch with **1-3 supra-aortic branches + coarctation** | Pathology studies, branch-position sweeps, workshop demos |
+
+All three produce the same case-folder layout (`inlet.stl`, `outlet1..N.stl`,
+`wall_aorta.stl`, `geometry.meta.json`) so they all hand off to
+`AortaCFD-app/scripts/package_cases.py` identically.
+
+## v3 — 5-knob minimal interface (newest)
+
+![v3 baseline hero](figures/v3_baseline_hero.png)
+
+*v3 baseline (`cli_v3.py --spec specs_v3/single_baseline_v3.json`).
+Five direct knobs: `r_inlet`, `r_outlet`, `arch_width_mm`, `arch_height_mm`,
+`torsion_deg`. Everything else is fixed at workshop-quality defaults.*
+
+![v3 torsion sweep](figures/v3_torsion_oblique_vs_topdown.png)
+
+*A 10-step sweep of `torsion_deg` from -20° to +20° (subset shown).
+Top row: oblique view — the torsion is subtle because the centreline is
+still planar at each individual sample. Bottom row: top-down view — the
+descending tube clearly rotates around the inlet z-axis. This is the
+canonical way to introduce out-of-plane variation without invoking the
+SynthAorta Fourier multipliers.*
+
+See [`README_v3.md`](./README_v3.md) for the full 5-knob spec.
+
+## v2 — full SynthAorta-compatible cube (ML / sensitivity)
+
+12-knob parameter space (3 segment radii + arch curvature + lengths + 2
+non-planar Fourier multipliers + mesh resolution) with literature-grounded
+default distributions from Bošnjak et al. 2025 Table I. Adds Sobol / LHS /
+random sample modes for ML training data and sensitivity studies. See
+[`README_v2.md`](./README_v2.md).
+
+## v1 — pathology + supra-aortic branches (legacy production)
+
+The original generator below covers the workshop pathology-sweep demo. 21
+knobs including branch geometry and a smooth coarctation. Standalone
+Blender script + Python CLI that supports three modes:
 
 - **single** — one parameter set, one STL
 - **sweep** — vary one named parameter from low to high in N linear steps
