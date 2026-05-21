@@ -90,70 +90,42 @@ def test_translate_rejects_unknown_v3_key() -> None:
         translate_v3_to_v2({"r_inletx": 14.0})
 
 
-# ── arch_radius_mm convenience shortcut ─────────────────────────────────────
+# ── arch_radius_mm = tube radius at arch segment (NOT curvature) ──────────
 
 
-def test_arch_radius_expands_to_U_arch() -> None:
-    """arch_radius_mm=30 → arch_width_mm=60, arch_height_mm=30 (canonical U)."""
+def test_arch_radius_default_is_midpoint() -> None:
+    """When arch_radius_mm is not set, r_arch is auto-derived as the
+    midpoint of r_inlet and r_outlet (legacy behaviour)."""
+    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0})
+    assert v2["r_arch"] == pytest.approx(12.0)  # midpoint
+
+
+def test_arch_radius_explicit_overrides_midpoint() -> None:
+    """When arch_radius_mm > 0, r_arch uses that value directly."""
     v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
-                              "arch_radius_mm": 30.0})
-    # After translation + _resolve_arch_params, the v2 params should reflect
-    # arch_R_c=30 and arch_angle_deg=180 (U-arch)
-    assert v2["arch_R_c"] == pytest.approx(30.0)
-    assert v2["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
-    # arch_radius_mm itself doesn't end up in v2
-    assert "arch_radius_mm" not in v2
+                              "arch_radius_mm": 15.0})  # bulge at arch
+    assert v2["r_arch"] == pytest.approx(15.0)
+    # Other radii unchanged
+    assert v2["r_ascending"] == 14.0
+    assert v2["r_descending"] == 10.0
 
 
-def test_arch_radius_zero_ignored() -> None:
-    """Default arch_radius_mm=0 means 'not used' — width/height take effect."""
+def test_arch_radius_zero_treated_as_unset() -> None:
+    """arch_radius_mm = 0 reverts to auto-midpoint."""
     v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
-                              "arch_radius_mm": 0.0,
-                              "arch_width_mm": 90.0, "arch_height_mm": 45.0})
-    assert v2["arch_R_c"] == pytest.approx(45.0)
-    assert v2["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
+                              "arch_radius_mm": 0.0})
+    assert v2["r_arch"] == pytest.approx(12.0)
 
 
-def test_arch_radius_conflicts_with_width_height() -> None:
-    """Setting arch_radius_mm AND arch_width_mm should raise."""
-    with pytest.raises(ValueError, match="cannot be combined"):
-        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_width_mm": 60.0})
-    with pytest.raises(ValueError, match="cannot be combined"):
-        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_height_mm": 30.0})
-
-
-def test_arch_radius_in_ellipse_alone_degenerates_to_circle() -> None:
-    """arch_radius_mm alone in ellipse mode produces a degenerate ellipse
-    (a = b = R) which is geometrically a circle U-arch."""
-    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
-                              "arch_radius_mm": 30.0, "arch_shape": "ellipse"})
-    # Ellipse passes through with span+height untouched (no R_c conversion)
-    assert v2["arch_shape"] == "ellipse"
-    assert v2["arch_span_mm"] == pytest.approx(60.0)   # = 2R
-    assert v2["arch_height_mm"] == pytest.approx(30.0)  # = R
-
-
-def test_arch_radius_in_ellipse_with_width_derives_height() -> None:
-    """In ellipse mode: R_peak + W → H = W² / (4·R_peak)."""
-    v2 = translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_shape": "ellipse",
-                              "arch_width_mm": 60.0})  # R=30, W=60 → H = 3600/120 = 30
-    assert v2["arch_span_mm"] == pytest.approx(60.0)
-    assert v2["arch_height_mm"] == pytest.approx(30.0)
-
-
-def test_arch_radius_in_ellipse_with_height_derives_width() -> None:
-    """In ellipse mode: R_peak + H → W = 2·√(R_peak · H)."""
-    v2 = translate_v3_to_v2({"arch_radius_mm": 20.0, "arch_shape": "ellipse",
-                              "arch_height_mm": 80.0})  # R=20, H=80 → W = 2·√(1600) = 80
-    assert v2["arch_span_mm"] == pytest.approx(80.0)
-    assert v2["arch_height_mm"] == pytest.approx(80.0)
-
-
-def test_arch_radius_in_ellipse_rejects_overdetermined() -> None:
-    """R + W + H all set in ellipse mode is over-determined."""
-    with pytest.raises(ValueError, match="over-determined"):
-        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_shape": "ellipse",
-                            "arch_width_mm": 60.0, "arch_height_mm": 40.0})
+def test_arch_radius_independent_of_arch_shape() -> None:
+    """arch_radius_mm sets r_arch regardless of arch_shape (circle / ellipse)."""
+    for shape in ("circle", "ellipse"):
+        v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                                  "arch_radius_mm": 13.5,
+                                  "arch_shape": shape,
+                                  "arch_width_mm": 80.0, "arch_height_mm": 40.0})
+        assert v2["r_arch"] == pytest.approx(13.5)
+        assert v2["arch_shape"] == shape
 
 
 # ── validate_spec ───────────────────────────────────────────────────────────

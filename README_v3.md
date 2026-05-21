@@ -5,19 +5,26 @@ ready-to-mesh STL. Up to **10 knobs total** (8 active at a time —
 `arch_radius_mm` and W+H are mutually exclusive), everything else fixed at
 workshop-quality defaults.
 
-### Four ways to specify the arch shape
+### Two distinct "radius" concepts in v3
+
+| Term | Meaning | How to set |
+|---|---|---|
+| **Tube / lumen radius** | Radius of the tube cross-section (`r_inlet`, `arch_radius_mm`, `r_outlet`) | Direct knobs |
+| **Arch curvature** | How sharply the centerline bends | Derived from `arch_width_mm` + `arch_height_mm` (or `arch_R_c` + `arch_angle_deg` in v2) |
+
+`arch_radius_mm` controls the **TUBE radius at the arch segment** — the third
+piece of the inlet → arch → outlet taper, alongside `r_inlet` and `r_outlet`.
+Default 0 = auto-midpoint. Set explicitly when you need a different lumen
+radius at the bend than the midpoint of inlet and outlet (e.g., to model a
+mild aneurysm at the arch).
+
+### Three ways to specify the arch shape (centerline curvature)
 
 | Style | Knobs you set | Result |
 |---|---|---|
-| **By radius** (simplest, U-arch only) | `arch_radius_mm` | Canonical U with R_c = R, W = 2R, H = R |
-| **By width + height** (circle, default) | `arch_width_mm`, `arch_height_mm` | Circular arc with constraint H ≤ W ≤ 2H |
-| **By width + height** (ellipse) | `arch_shape="ellipse"`, `arch_width_mm`, `arch_height_mm` | Half-ellipse, any positive W, H independent |
-| **By R_peak + one dim** (ellipse, advanced) | `arch_shape="ellipse"`, `arch_radius_mm`, **plus** `arch_width_mm` OR `arch_height_mm` | Specify the peak curvature radius + one dimension; the other is derived |
-
-In the ellipse + R_peak mode:
-- `R + W` → `H = W²/(4R)` (so the peak curvature radius is exactly R)
-- `R + H` → `W = 2·√(R·H)` (same)
-- `R + W + H` → error (over-determined — pick two)
+| **Circle (default), by W + H** | `arch_width_mm`, `arch_height_mm` | Circular arc with constraint H ≤ W ≤ 2H |
+| **Ellipse, by W + H** | `arch_shape="ellipse"`, `arch_width_mm`, `arch_height_mm` | Half-ellipse, any positive W, H independent |
+| **Circle, by R_c via v2** | (drop to `cli_v2.py`) `arch_R_c`, `arch_angle_deg` | Direct clinical curvature radius + subtended angle |
 
 ![v3 baseline](figures/v3_baseline_hero.png)
 
@@ -32,7 +39,7 @@ STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.
 | 2 | `r_outlet` | 10.0 mm | outlet (descending) radius |
 | 3 | `arch_width_mm` | 90.0 mm | arch horizontal extent (ascending → descending) |
 | 4 | `arch_height_mm` | 45.0 mm | arch peak height above ascending top |
-| 5 | `arch_radius_mm` | 0.0 (off) | **CONVENIENCE**: when > 0, sets arch radius. Circle mode: R_c (sets W=2R, H=R, mutually exclusive with W+H). Ellipse mode: R_peak (curvature at top — combinable with W or H to derive the third). |
+| 5 | `arch_radius_mm` | 0.0 (auto) | TUBE radius at the arch segment [mm]. 0 = auto-derive as `(r_inlet + r_outlet) / 2`. Set > 0 to give the arch a different lumen radius than the midpoint (e.g., a bulge or pinch). |
 | 6 | `arch_shape` | `"circle"` | `"circle"` (constraint H ≤ W ≤ 2H) or `"ellipse"` (independent W + H) |
 | 7 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
 | 8 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |
