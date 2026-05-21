@@ -5,7 +5,7 @@ Blender script + Python CLI in three flavours of increasing simplicity:
 
 | Variant | Interface | Topology | Use when |
 |---|---|---|---|
-| [**v3**](./README_v3.md) (`cli_v3.py`) | 8 knobs (5 primary + 2 lengths + twist) | Pipe U-bend, no branches | You just want to dial inlet/outlet/W/H/torsion/twist and get an STL |
+| [**v3**](./README_v3.md) (`cli_v3.py`) | 9 knobs (5 primary + twist + arch_shape + 2 lengths) | Pipe U-bend, no branches (circle or ellipse arch) | You just want to dial inlet/outlet/W/H/torsion/twist and get an STL |
 | [**v2**](./README_v2.md) (`cli_v2.py`) | 17 knobs + Sobol/LHS sampling | Healthy arch, no branches | ML training data, SynthAorta-comparable studies, sensitivity analysis |
 | [**v1**](./README.md) (`cli.py`) | 21 knobs | Aortic arch with **1-3 supra-aortic branches + coarctation** | Pathology studies, branch-position sweeps, workshop demos |
 
@@ -13,16 +13,24 @@ All three produce the same case-folder layout (`inlet.stl`, `outlet1..N.stl`,
 `wall_aorta.stl`, `geometry.meta.json`) so they all hand off to
 `AortaCFD-app/scripts/package_cases.py` identically.
 
-## v3 — pipe U-bend, 8-knob interface (newest)
+## v3 — pipe U-bend, 9-knob interface (newest)
 
 ![v3 baseline hero](figures/v3_baseline_hero.png)
 
 *v3 baseline (`cli_v3.py --spec specs_v3/single_baseline_v3.json`).
-Eight direct knobs: `r_inlet`, `r_outlet`, `arch_width_mm`,
-`arch_height_mm`, `torsion_deg` (rigid plane tilt), `twist_deg`
-(gradual non-planar twist), plus optional `ascending_length` and
-`descending_length`. Everything else is fixed at workshop-quality
-defaults.*
+Nine direct knobs: `r_inlet`, `r_outlet`, `arch_width_mm`,
+`arch_height_mm`, `arch_shape` (circle or ellipse), `torsion_deg`
+(rigid plane tilt), `twist_deg` (gradual non-planar twist), plus
+optional `ascending_length` and `descending_length`. Everything else
+is fixed at workshop-quality defaults.*
+
+![arch_shape circle vs ellipse](figures/v3_circle_vs_ellipse.png)
+
+*`arch_shape="circle"` (top row) constrains the arch to a circular
+arc — needs `H ≤ W ≤ 2H`. `arch_shape="ellipse"` (bottom row) allows
+**any positive W, H** including tall narrow (W < H, bottom-right) and
+very flat (W ≫ 2H). The default is `"circle"` for backwards-compat;
+switch to `"ellipse"` whenever you need independent W and H.*
 
 ![16-case Sobol gallery](figures/v3_sobol_gallery_with_twist.png)
 
