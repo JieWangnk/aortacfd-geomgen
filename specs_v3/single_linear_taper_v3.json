@@ -1,0 +1,17 @@
+{
+  "schema_version": "3.0",
+  "name": "single_linear_taper_v3",
+  "_doc": "Baseline geometry with LINEAR lumen taper between r_inlet → arch → r_outlet instead of the default smoothstep. Use this when you want the radius transition to be obvious / less smoothed-out, e.g. for educational visualisation of how the tube tapers.",
+
+  "mode": "single",
+  "geometry": "healthy_arch_v3",
+  "case_id": "linear_taper",
+
+  "params": {
+    "r_inlet": 14.0,
+    "r_outlet": 10.0,
+    "taper_mode": "linear",
+    "torsion_deg": 0.0,
+    "twist_deg": 0.0
+  }
+}

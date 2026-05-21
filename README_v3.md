@@ -49,6 +49,7 @@ STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.
 | 3 | `arch_width_mm` | 90.0 mm | arch horizontal extent (ascending → descending) |
 | 4 | `arch_height_mm` | 45.0 mm | arch peak height above ascending top |
 | 5 | `arch_radius_mm` | 0.0 (auto) | TUBE radius at the arch segment [mm]. 0 = auto-derive as `(r_inlet + r_outlet) / 2`. Set > 0 to give the arch a different lumen radius than the midpoint (e.g., a bulge or pinch). |
+| 5b | `taper_mode` | `"smoothstep"` | How the tube radius transitions between segments: `"smoothstep"` (cosine-Hermite, default), `"linear"` (piecewise linear blend), `"piecewise"` (constant per segment, sharp jumps). |
 | 6 | `arch_shape` | `"circle"` | `"circle"` (constraint H ≤ W ≤ 2H) or `"ellipse"` (independent W + H) |
 | 7 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
 | 8 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |

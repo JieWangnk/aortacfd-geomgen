@@ -25,11 +25,11 @@ from cli_v3 import (  # noqa: E402
 # ── PARAMETERS schema ───────────────────────────────────────────────────────
 
 
-def test_v3_has_11_parameters() -> None:
-    # r_inlet, r_outlet, arch_radius_mm (tube), arch_width_mm, arch_height_mm,
-    # arch_R_c_mm (curvature), arch_shape, torsion_deg, twist_deg,
-    # ascending_length, descending_length
-    assert len(PARAMETERS) == 11
+def test_v3_has_12_parameters() -> None:
+    # r_inlet, r_outlet, arch_radius_mm (tube), taper_mode, arch_width_mm,
+    # arch_height_mm, arch_R_c_mm (curvature), arch_shape, torsion_deg,
+    # twist_deg, ascending_length, descending_length
+    assert len(PARAMETERS) == 12
 
 
 def test_v3_primary_knobs_present() -> None:
@@ -38,10 +38,26 @@ def test_v3_primary_knobs_present() -> None:
 
 
 def test_v3_no_internal_v2_params_exposed() -> None:
-    """v3 deliberately hides taper_mode, junction_blend_mm, delta_*, mesh res, etc."""
-    for hidden in ("taper_mode", "junction_blend_mm", "delta_3", "delta_4",
+    """v3 deliberately hides v2-only knobs (taper_mode is now in v3 too)."""
+    for hidden in ("junction_blend_mm", "delta_3", "delta_4",
                    "segments_radial", "curve_samples", "arch_R_c", "arch_angle_deg"):
         assert hidden not in PARAMETERS
+
+
+def test_taper_mode_in_v3() -> None:
+    """taper_mode is now a v3 knob (was hardcoded smoothstep in V2_FIXED)."""
+    assert "taper_mode" in PARAMETERS
+    info = PARAMETERS["taper_mode"]
+    assert info["default"] == "smoothstep"
+    assert set(info["choices"]) == {"piecewise", "linear", "smoothstep"}
+
+
+def test_taper_mode_passes_through_to_v2() -> None:
+    """Setting taper_mode in v3 reaches v2 unchanged."""
+    for mode in ("piecewise", "linear", "smoothstep"):
+        v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                                  "taper_mode": mode})
+        assert v2["taper_mode"] == mode
 
 
 # ── v3 → v2 translation ─────────────────────────────────────────────────────
@@ -67,11 +83,13 @@ def test_translate_baseline_matches_user_reference() -> None:
     # which converts to (R_c, angle). With H=45, W=90 → R_c=45, θ=180°.
     assert v2["arch_R_c"] == pytest.approx(45.0)
     assert v2["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
-    # Fixed defaults injected
-    assert v2["taper_mode"] == "smoothstep"
+    # Fixed defaults injected from V2_FIXED
     assert v2["delta_3"] == 0.0
     assert v2["delta_4"] == 0.0
     assert v2["junction_blend_mm"] == V2_FIXED["junction_blend_mm"]
+    # taper_mode is NOT in V2_FIXED anymore (it's a v3 knob now). When v3 user
+    # doesn't supply it, blender_aorta_v2.py's own --taper_mode default kicks in.
+    assert "taper_mode" not in v2
     # v3 keys are stripped
     for v3_only in ("arch_width_mm", "arch_height_mm"):
         assert v3_only not in v2
@@ -261,16 +279,14 @@ def test_v3_round_trip_to_v2() -> None:
                               "arch_width_mm": 90.0, "arch_height_mm": 45.0,
                               "torsion_deg": 0.0})
     required_v2_keys = {
-        "r_ascending", "r_arch", "r_descending", "taper_mode",
+        "r_ascending", "r_arch", "r_descending",
         "ascending_length", "descending_length",
         "arch_R_c", "arch_angle_deg", "arch_tilt_deg", "junction_blend_mm",
         "delta_3", "delta_4", "segments_radial", "curve_samples",
     }
-    # The v3 → v2 translation should cover everything blender_aorta_v2.py exposes
-    # as a flag, EXCEPT v3 doesn't surface ascending_length/descending_length as
-    # primary knobs in the baseline spec — they come from V2_FIXED-style defaults.
-    # But translate_v3_to_v2 does inject ALL the fixed defaults, so the result
-    # may not include ascending_length/descending_length if v3 spec didn't supply them.
-    # That's fine — blender_aorta_v2.py has its own defaults for those.
+    # The v3 → v2 translation covers what blender_aorta_v2.py needs as flags.
+    # Skipping ascending_length / descending_length (not in v3 input) and
+    # taper_mode (now a v3 knob — not auto-injected from V2_FIXED). When the
+    # v3 user doesn't supply them, blender_aorta_v2.py's own arg defaults apply.
     must_have = required_v2_keys - {"ascending_length", "descending_length"}
     assert must_have.issubset(set(v2.keys()))

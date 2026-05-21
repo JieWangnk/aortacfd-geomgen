@@ -105,6 +105,16 @@ PARAMETERS: dict[str, dict[str, Any]] = {
                        "to dial it independently. NOT to be confused with arch_R_c_mm "
                        "(which is centerline curvature).",
     },
+    "taper_mode": {
+        "type": "str", "default": "smoothstep", "min": None, "max": None,
+        "group": "Radii",
+        "description": "How the lumen radius transitions between r_inlet, arch_radius_mm, "
+                       "and r_outlet across segment boundaries: 'smoothstep' "
+                       "(cosine-Hermite blend — default, smoothest), 'linear' "
+                       "(piecewise-linear blend across 30 mm window), 'piecewise' "
+                       "(constant radius per segment, hard step at boundaries).",
+        "choices": ["piecewise", "linear", "smoothstep"],
+    },
     "arch_R_c_mm": {
         "type": "float", "default": 0.0, "min": 0.0, "max": 100.0,
         "group": "Arch",
@@ -134,6 +144,7 @@ V3_TO_V2: dict[str, str] = {
     "arch_radius_mm": "r_arch",       # tube radius at arch segment (was midpoint-auto)
     "arch_width_mm": "arch_span_mm",
     "arch_height_mm": "arch_height_mm",
+    "taper_mode": "taper_mode",       # lumen taper between segment radii
     "torsion_deg": "arch_tilt_deg",
     "twist_deg": "arch_twist_deg",
     "arch_shape": "arch_shape",
@@ -142,8 +153,9 @@ V3_TO_V2: dict[str, str] = {
 }
 
 # v2 params hard-wired (NOT exposed in v3) — workshop-quality defaults
+# taper_mode is now a v3 knob (was here) — when v3 user doesn't set it,
+# blender_aorta_v2.py's --taper_mode default "smoothstep" applies.
 V2_FIXED: dict[str, Any] = {
-    "taper_mode": "smoothstep",
     "delta_3": 0.0,
     "delta_4": 0.0,
     "junction_blend_mm": 12.0,
