@@ -9,14 +9,23 @@ workshop-quality defaults.
 
 | Term | Meaning | How to set |
 |---|---|---|
-| **Tube / lumen radius** | Radius of the tube cross-section (`r_inlet`, `arch_radius_mm`, `r_outlet`) | Direct knobs |
-| **Arch curvature** | How sharply the centerline bends | Derived from `arch_width_mm` + `arch_height_mm` (or `arch_R_c` + `arch_angle_deg` in v2) |
+| **Tube / lumen radius** (`r_*`) | Radius of the tube CROSS-SECTION | `r_inlet`, `arch_radius_mm`, `r_outlet` |
+| **Centerline curvature** (R_c) | How sharply the centerline path BENDS | `arch_R_c_mm` (shortcut for U-arch), or `arch_width_mm` + `arch_height_mm` directly |
 
-`arch_radius_mm` controls the **TUBE radius at the arch segment** — the third
-piece of the inlet → arch → outlet taper, alongside `r_inlet` and `r_outlet`.
-Default 0 = auto-midpoint. Set explicitly when you need a different lumen
-radius at the bend than the midpoint of inlet and outlet (e.g., to model a
-mild aneurysm at the arch).
+Don't confuse them — they look similarly named but mean different things:
+
+```bash
+# Three INDEPENDENT knobs you might set:
+--param r_inlet=14         # tube radius at the inlet (lumen cross-section)
+--param arch_radius_mm=15  # tube radius at the arch segment (lumen cross-section)
+--param r_outlet=10        # tube radius at the outlet (lumen cross-section)
+
+--param arch_R_c_mm=45     # centerline curvature radius (how sharply the path bends)
+# (alternative: --param arch_width_mm=90 --param arch_height_mm=45)
+```
+
+The first three control the **tube wall**; `arch_R_c_mm` controls the
+**centerline path**. They're orthogonal — you can dial them independently.
 
 ### Three ways to specify the arch shape (centerline curvature)
 

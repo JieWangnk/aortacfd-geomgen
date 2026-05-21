@@ -25,10 +25,11 @@ from cli_v3 import (  # noqa: E402
 # ── PARAMETERS schema ───────────────────────────────────────────────────────
 
 
-def test_v3_has_10_parameters() -> None:
-    # 5 primary (radii + arch) + twist_deg + arch_shape + arch_radius_mm
-    # + 2 optional (lengths)
-    assert len(PARAMETERS) == 10
+def test_v3_has_11_parameters() -> None:
+    # r_inlet, r_outlet, arch_radius_mm (tube), arch_width_mm, arch_height_mm,
+    # arch_R_c_mm (curvature), arch_shape, torsion_deg, twist_deg,
+    # ascending_length, descending_length
+    assert len(PARAMETERS) == 11
 
 
 def test_v3_primary_knobs_present() -> None:
@@ -115,6 +116,54 @@ def test_arch_radius_zero_treated_as_unset() -> None:
     v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
                               "arch_radius_mm": 0.0})
     assert v2["r_arch"] == pytest.approx(12.0)
+
+
+# ── arch_R_c_mm = centerline curvature shortcut (NOT tube radius) ─────────
+
+
+def test_arch_R_c_circle_expands_to_U_arch() -> None:
+    """arch_R_c_mm=30 in circle mode → arch_R_c=30, angle=180°."""
+    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                              "arch_R_c_mm": 30.0})
+    assert v2["arch_R_c"] == pytest.approx(30.0)
+    assert v2["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
+    # arch_R_c_mm itself doesn't end up in v2
+    assert "arch_R_c_mm" not in v2
+
+
+def test_arch_R_c_circle_rejects_with_width_height() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        translate_v3_to_v2({"arch_R_c_mm": 30.0, "arch_width_mm": 60.0})
+
+
+def test_arch_R_c_ellipse_alone_degenerates() -> None:
+    v2 = translate_v3_to_v2({"arch_R_c_mm": 30.0, "arch_shape": "ellipse"})
+    assert v2["arch_shape"] == "ellipse"
+    assert v2["arch_span_mm"] == pytest.approx(60.0)
+    assert v2["arch_height_mm"] == pytest.approx(30.0)
+
+
+def test_arch_R_c_ellipse_with_height_derives_width() -> None:
+    """R + H in ellipse → W = 2·√(R·H)."""
+    v2 = translate_v3_to_v2({"arch_R_c_mm": 20.0, "arch_shape": "ellipse",
+                              "arch_height_mm": 80.0})
+    assert v2["arch_span_mm"] == pytest.approx(80.0)  # 2·√(20·80) = 80
+
+
+def test_arch_R_c_ellipse_rejects_overdetermined() -> None:
+    with pytest.raises(ValueError, match="over-determined"):
+        translate_v3_to_v2({"arch_R_c_mm": 30.0, "arch_shape": "ellipse",
+                            "arch_width_mm": 60.0, "arch_height_mm": 40.0})
+
+
+def test_arch_R_c_and_arch_radius_independent() -> None:
+    """The two 'radius' concepts coexist: arch_R_c_mm controls curvature,
+    arch_radius_mm controls tube lumen at the arch segment."""
+    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                              "arch_R_c_mm": 30.0,       # centerline curvature
+                              "arch_radius_mm": 15.0})    # tube radius at arch
+    assert v2["arch_R_c"] == pytest.approx(30.0)          # curvature applied
+    assert v2["r_arch"] == pytest.approx(15.0)            # tube radius applied
 
 
 def test_arch_radius_independent_of_arch_shape() -> None:

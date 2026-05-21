@@ -1,0 +1,17 @@
+{
+  "schema_version": "3.0",
+  "name": "single_R_c_v3",
+  "_doc": "Canonical U-arch specified by CENTERLINE curvature radius (arch_R_c_mm) instead of width+height. arch_R_c_mm=45 expands internally to arch_width_mm=90, arch_height_mm=45. NOT to be confused with arch_radius_mm (the tube lumen radius at the arch segment).",
+
+  "mode": "single",
+  "geometry": "healthy_arch_v3",
+  "case_id": "by_curvature_R",
+
+  "params": {
+    "r_inlet": 14.0,
+    "r_outlet": 10.0,
+    "arch_R_c_mm": 45.0,
+    "torsion_deg": 0.0,
+    "twist_deg": 0.0
+  }
+}

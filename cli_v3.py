@@ -99,10 +99,21 @@ PARAMETERS: dict[str, dict[str, Any]] = {
     "arch_radius_mm": {
         "type": "float", "default": 0.0, "min": 0.0, "max": 22.0,
         "group": "Radii",
-        "description": "Tube cross-section radius at the ARCH segment [mm] (between "
+        "description": "TUBE cross-section radius at the ARCH segment [mm] (between "
                        "r_inlet and r_outlet — middle lumen radius). Default 0 = "
                        "auto-derive as midpoint (r_inlet + r_outlet) / 2. Set > 0 "
-                       "to dial it independently.",
+                       "to dial it independently. NOT to be confused with arch_R_c_mm "
+                       "(which is centerline curvature).",
+    },
+    "arch_R_c_mm": {
+        "type": "float", "default": 0.0, "min": 0.0, "max": 100.0,
+        "group": "Arch",
+        "description": "CENTERLINE curvature radius shortcut [mm]. When > 0, derives "
+                       "arch_width_mm and arch_height_mm automatically. Circle mode: "
+                       "sets W=2·R, H=R (canonical U-arch). Ellipse mode: treated as "
+                       "R_peak (curvature at top); combine with W or H to derive the "
+                       "third (alone gives degenerate ellipse = circle). NOT the tube "
+                       "radius — that's arch_radius_mm.",
     },
     "ascending_length": {
         "type": "float", "default": 50.0, "min": 40.0, "max": 90.0,
@@ -149,14 +160,60 @@ V2_FIXED: dict[str, Any] = {
 def translate_v3_to_v2(v3_params: dict[str, Any]) -> dict[str, Any]:
     """Map v3 parameter names to v2 names + inject fixed defaults.
 
-    arch_radius_mm semantics:
-      - When > 0: tube cross-section radius at the arch segment (v2.r_arch).
-      - When 0 (default): auto-derived as the midpoint of r_inlet and r_outlet
-        so the main lumen tapers smoothly inlet → arch → outlet.
+    Two preprocessing steps:
+
+      1. arch_R_c_mm (CURVATURE shortcut): when > 0, expands to
+         arch_width_mm + arch_height_mm based on arch_shape:
+           circle  → W = 2·R, H = R  (canonical U-arch)
+           ellipse → R is R_peak; combine with W or H to derive the third
+                     (alone → degenerate U-arch a=b=R).
+         Mutually exclusive with W+H in circle mode; in ellipse mode the
+         R+W+H combination is over-determined.
+
+      2. arch_radius_mm (TUBE radius at arch segment): when > 0, sets
+         v2.r_arch directly. When 0 (default), auto-derived as the midpoint
+         of r_inlet and r_outlet so the main lumen tapers smoothly.
 
     Calls ``cli_v2._resolve_arch_params`` so v2 sees ``arch_R_c`` and
-    ``arch_angle_deg`` (not ``arch_span_mm`` / ``arch_height_mm``).
+    ``arch_angle_deg`` (not ``arch_span_mm`` / ``arch_height_mm``) when in
+    circle mode.
     """
+    v3_params = dict(v3_params)  # copy so we can mutate
+
+    # ── arch_R_c_mm curvature shortcut (NOT in V3_TO_V2 — handled here) ────
+    R_c_shortcut = float(v3_params.pop("arch_R_c_mm", 0.0))
+    if R_c_shortcut > 0:
+        shape = v3_params.get("arch_shape", "circle")
+        has_w = "arch_width_mm" in v3_params
+        has_h = "arch_height_mm" in v3_params
+
+        if shape == "circle":
+            if has_w or has_h:
+                raise ValueError(
+                    "arch_R_c_mm cannot be combined with arch_width_mm or "
+                    "arch_height_mm in circle mode — they would conflict "
+                    "(R_c uniquely determines both W and H of the U-arch)."
+                )
+            v3_params["arch_width_mm"] = 2.0 * R_c_shortcut
+            v3_params["arch_height_mm"] = R_c_shortcut
+        else:  # ellipse — arch_R_c_mm = R_peak (curvature at top)
+            if has_w and has_h:
+                raise ValueError(
+                    "arch_R_c_mm + arch_width_mm + arch_height_mm is "
+                    "over-determined in ellipse mode (R_peak is fully "
+                    "determined by W and H alone — drop one of them)."
+                )
+            if has_w:
+                W = float(v3_params["arch_width_mm"])
+                v3_params["arch_height_mm"] = (W * W) / (4.0 * R_c_shortcut)
+            elif has_h:
+                H = float(v3_params["arch_height_mm"])
+                v3_params["arch_width_mm"] = 2.0 * math.sqrt(R_c_shortcut * H)
+            else:
+                v3_params["arch_width_mm"] = 2.0 * R_c_shortcut
+                v3_params["arch_height_mm"] = R_c_shortcut
+
+    # ── Standard v3 → v2 name translation ──────────────────────────────────
     v2: dict[str, Any] = dict(V2_FIXED)
     for v3_key, value in v3_params.items():
         if v3_key not in V3_TO_V2:
@@ -164,7 +221,6 @@ def translate_v3_to_v2(v3_params: dict[str, Any]) -> dict[str, Any]:
         v2[V3_TO_V2[v3_key]] = value
 
     # Auto-derive r_arch (tube radius at arch segment) when not set explicitly.
-    # arch_radius_mm > 0 → use as-is. == 0 → midpoint of inlet and outlet.
     r_in = float(v2.get("r_ascending", PARAMETERS["r_inlet"]["default"]))
     r_out = float(v2.get("r_descending", PARAMETERS["r_outlet"]["default"]))
     if float(v2.get("r_arch", 0.0)) <= 0.0:
