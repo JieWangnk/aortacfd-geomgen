@@ -28,6 +28,53 @@ of that.
 
 ---
 
+## Install (one-time)
+
+### Python deps
+
+```bash
+pip install numpy numpy-stl scipy
+# Optional, only for the PyVista gallery / figure scripts:
+pip install pyvista matplotlib
+```
+
+Tested with Python 3.10–3.12.
+
+### Blender (required for STL generation)
+
+`cli_v3.py` launches Blender in headless mode (`blender -b -P …`) to build each
+geometry. Without Blender installed, `--list-params` / `--dry-run` / tests still
+work but no STLs come out.
+
+| OS | Command |
+|---|---|
+| **Windows** | Download installer from [blender.org/download](https://www.blender.org/download/); during install, check **"Add to PATH"** (or add the install folder to PATH manually afterwards) |
+| **macOS** | `brew install --cask blender`   (or download `.dmg` from blender.org and drop into Applications) |
+| **Linux** (Debian/Ubuntu) | `sudo apt install blender` |
+| **Linux** (Fedora) | `sudo dnf install blender` |
+| **Linux** (Arch) | `sudo pacman -S blender` |
+| **Any Linux** | `sudo snap install blender --classic` (newest version) |
+
+Verify with `blender --version` — should print 3.0 or newer.
+
+If Blender is installed but not on PATH, point at it explicitly:
+
+```bash
+# One-time per session (any OS):
+export BLENDER=/opt/blender-5.1/blender   # Linux/macOS
+# (Windows cmd: set BLENDER=C:\path\to\blender.exe)
+
+# Or per-invocation:
+python3 cli_v3.py --blender /opt/blender-5.1/blender --spec ... --output ...
+```
+
+**Note:** We use Blender purely as a mesh kernel (vertex/face construction
++ triangulate modifier + STL exporter). No materials, lighting, animation, or
+GPU rendering — so any Blender install works, including ones with no GPU
+drivers (e.g. on a headless server).
+
+---
+
 ## How to generate a pipe U-bend (3 ways)
 
 ### Way 1 — One geometry from defaults (smoke test)
