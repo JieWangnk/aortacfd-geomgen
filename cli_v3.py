@@ -95,6 +95,14 @@ PARAMETERS: dict[str, dict[str, Any]] = {
         "description": "'circle' = constrained to H ≤ W ≤ 2H; 'ellipse' = independent W + H",
         "choices": ["circle", "ellipse"],
     },
+    "arch_radius_mm": {
+        "type": "float", "default": 0.0, "min": 0.0, "max": 100.0,
+        "group": "Arch",
+        "description": "CONVENIENCE: when > 0, sets a canonical U-arch with R_c = "
+                       "arch_radius_mm. Auto-derives arch_width_mm = 2·R_c and "
+                       "arch_height_mm = R_c. Mutually exclusive with explicit "
+                       "arch_width_mm / arch_height_mm. Only valid with arch_shape='circle'.",
+    },
     "ascending_length": {
         "type": "float", "default": 50.0, "min": 40.0, "max": 90.0,
         "group": "Lengths (optional)",
@@ -139,16 +147,47 @@ V2_FIXED: dict[str, Any] = {
 def translate_v3_to_v2(v3_params: dict[str, Any]) -> dict[str, Any]:
     """Map v3 parameter names to v2 names + inject fixed defaults.
 
+    Pre-processing:
+      - ``arch_radius_mm > 0`` is expanded to ``arch_width_mm = 2·R`` and
+        ``arch_height_mm = R`` (canonical U-arch convenience). Mutually
+        exclusive with explicit arch_width_mm / arch_height_mm. Only valid
+        when arch_shape == "circle" (an ellipse has no single radius).
+
     Auto-derives v2's ``r_arch`` as the midpoint of inlet and outlet so the
     main lumen tapers smoothly from r_inlet → r_arch → r_outlet.
     Calls ``cli_v2._resolve_arch_params`` so v2 sees ``arch_R_c`` and
     ``arch_angle_deg`` (not ``arch_span_mm`` / ``arch_height_mm``).
     """
+    # Copy so we can mutate
+    v3_params = dict(v3_params)
+
+    # ── Expand arch_radius_mm convenience shortcut ─────────────────────────
+    r_arch_shortcut = float(v3_params.pop("arch_radius_mm", 0.0))
+    if r_arch_shortcut > 0:
+        if "arch_width_mm" in v3_params or "arch_height_mm" in v3_params:
+            raise ValueError(
+                "arch_radius_mm cannot be combined with arch_width_mm or "
+                "arch_height_mm — they would conflict. Use arch_radius_mm "
+                "alone for a canonical U-arch, or use width+height directly "
+                "for non-U arches."
+            )
+        shape = v3_params.get("arch_shape", "circle")
+        if shape != "circle":
+            raise ValueError(
+                f"arch_radius_mm requires arch_shape='circle' (got {shape!r}). "
+                f"Ellipses have variable curvature — use arch_width_mm + "
+                f"arch_height_mm directly in ellipse mode."
+            )
+        v3_params["arch_width_mm"] = 2.0 * r_arch_shortcut
+        v3_params["arch_height_mm"] = r_arch_shortcut
+
+    # ── Standard v3 → v2 name translation ──────────────────────────────────
     v2: dict[str, Any] = dict(V2_FIXED)
     for v3_key, value in v3_params.items():
         if v3_key not in V3_TO_V2:
             raise ValueError(f"Unknown v3 parameter {v3_key!r}")
         v2[V3_TO_V2[v3_key]] = value
+
     r_in = float(v2.get("r_ascending", PARAMETERS["r_inlet"]["default"]))
     r_out = float(v2.get("r_descending", PARAMETERS["r_outlet"]["default"]))
     v2["r_arch"] = 0.5 * (r_in + r_out)

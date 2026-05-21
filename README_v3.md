@@ -1,15 +1,24 @@
 # Aorta geometry generator — v3 (minimal pipe-U-bend interface)
 
 The shortest path from "I want a U-bend pipe with these dimensions" to a
-ready-to-mesh STL. **Six primary knobs**, two optional length knobs,
-everything else fixed at workshop-quality defaults.
+ready-to-mesh STL. Up to **10 knobs total** (8 active at a time —
+`arch_radius_mm` and W+H are mutually exclusive), everything else fixed at
+workshop-quality defaults.
+
+### Three ways to specify the arch shape
+
+| Style | Knobs you set | Result |
+|---|---|---|
+| **By radius** (simplest, U-arch only) | `arch_radius_mm` | Canonical U with R_c = R, W = 2R, H = R |
+| **By width + height** (circle, default) | `arch_width_mm`, `arch_height_mm` | Circular arc with constraint H ≤ W ≤ 2H |
+| **By width + height** (ellipse) | `arch_shape="ellipse"`, `arch_width_mm`, `arch_height_mm` | Half-ellipse, any positive W, H independent |
 
 ![v3 baseline](figures/v3_baseline_hero.png)
 
 *v3 baseline — the canonical U-bend pipe. The same 8 inputs produce the
 STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.*
 
-## The 9 knobs
+## The 10 knobs
 
 | # | Knob | Default | What it controls |
 |---|---|---|---|
@@ -17,11 +26,12 @@ STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.
 | 2 | `r_outlet` | 10.0 mm | outlet (descending) radius |
 | 3 | `arch_width_mm` | 90.0 mm | arch horizontal extent (ascending → descending) |
 | 4 | `arch_height_mm` | 45.0 mm | arch peak height above ascending top |
-| 5 | `arch_shape` | `"circle"` | `"circle"` (constraint H ≤ W ≤ 2H) or `"ellipse"` (independent W + H) |
-| 6 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
-| 7 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |
-| 8 | `ascending_length` (opt) | 50.0 mm | straight ascending length before arch |
-| 9 | `descending_length` (opt) | 200.0 mm | straight descending length after arch |
+| 5 | `arch_radius_mm` | 0.0 (off) | **CONVENIENCE**: when > 0, sets a canonical U-arch with R_c = this. Auto-derives W = 2·R, H = R. Mutually exclusive with W+H. Circle mode only. |
+| 6 | `arch_shape` | `"circle"` | `"circle"` (constraint H ≤ W ≤ 2H) or `"ellipse"` (independent W + H) |
+| 7 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
+| 8 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |
+| 9 | `ascending_length` (opt) | 50.0 mm | straight ascending length before arch |
+| 10 | `descending_length` (opt) | 200.0 mm | straight descending length after arch |
 
 That's it. No taper modes, no R_c vs angle decision, no Fourier multipliers,
 no mesh-resolution knobs. Use [`cli_v2.py`](./README_v2.md) when you need any

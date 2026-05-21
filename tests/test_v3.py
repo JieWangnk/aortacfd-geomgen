@@ -25,9 +25,10 @@ from cli_v3 import (  # noqa: E402
 # ── PARAMETERS schema ───────────────────────────────────────────────────────
 
 
-def test_v3_has_9_parameters() -> None:
-    # 5 primary (radii + arch) + twist_deg + arch_shape + 2 optional (lengths)
-    assert len(PARAMETERS) == 9
+def test_v3_has_10_parameters() -> None:
+    # 5 primary (radii + arch) + twist_deg + arch_shape + arch_radius_mm
+    # + 2 optional (lengths)
+    assert len(PARAMETERS) == 10
 
 
 def test_v3_primary_knobs_present() -> None:
@@ -87,6 +88,43 @@ def test_translate_handles_partial_overrides() -> None:
 def test_translate_rejects_unknown_v3_key() -> None:
     with pytest.raises(ValueError, match="Unknown v3 parameter"):
         translate_v3_to_v2({"r_inletx": 14.0})
+
+
+# ── arch_radius_mm convenience shortcut ─────────────────────────────────────
+
+
+def test_arch_radius_expands_to_U_arch() -> None:
+    """arch_radius_mm=30 → arch_width_mm=60, arch_height_mm=30 (canonical U)."""
+    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                              "arch_radius_mm": 30.0})
+    # After translation + _resolve_arch_params, the v2 params should reflect
+    # arch_R_c=30 and arch_angle_deg=180 (U-arch)
+    assert v2["arch_R_c"] == pytest.approx(30.0)
+    assert v2["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
+    # arch_radius_mm itself doesn't end up in v2
+    assert "arch_radius_mm" not in v2
+
+
+def test_arch_radius_zero_ignored() -> None:
+    """Default arch_radius_mm=0 means 'not used' — width/height take effect."""
+    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                              "arch_radius_mm": 0.0,
+                              "arch_width_mm": 90.0, "arch_height_mm": 45.0})
+    assert v2["arch_R_c"] == pytest.approx(45.0)
+    assert v2["arch_angle_deg"] == pytest.approx(180.0, abs=1e-6)
+
+
+def test_arch_radius_conflicts_with_width_height() -> None:
+    """Setting arch_radius_mm AND arch_width_mm should raise."""
+    with pytest.raises(ValueError, match="cannot be combined"):
+        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_width_mm": 60.0})
+    with pytest.raises(ValueError, match="cannot be combined"):
+        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_height_mm": 30.0})
+
+
+def test_arch_radius_rejected_in_ellipse_mode() -> None:
+    with pytest.raises(ValueError, match="requires arch_shape='circle'"):
+        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_shape": "ellipse"})
 
 
 # ── validate_spec ───────────────────────────────────────────────────────────
