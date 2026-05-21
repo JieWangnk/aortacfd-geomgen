@@ -122,9 +122,38 @@ def test_arch_radius_conflicts_with_width_height() -> None:
         translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_height_mm": 30.0})
 
 
-def test_arch_radius_rejected_in_ellipse_mode() -> None:
-    with pytest.raises(ValueError, match="requires arch_shape='circle'"):
-        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_shape": "ellipse"})
+def test_arch_radius_in_ellipse_alone_degenerates_to_circle() -> None:
+    """arch_radius_mm alone in ellipse mode produces a degenerate ellipse
+    (a = b = R) which is geometrically a circle U-arch."""
+    v2 = translate_v3_to_v2({"r_inlet": 14.0, "r_outlet": 10.0,
+                              "arch_radius_mm": 30.0, "arch_shape": "ellipse"})
+    # Ellipse passes through with span+height untouched (no R_c conversion)
+    assert v2["arch_shape"] == "ellipse"
+    assert v2["arch_span_mm"] == pytest.approx(60.0)   # = 2R
+    assert v2["arch_height_mm"] == pytest.approx(30.0)  # = R
+
+
+def test_arch_radius_in_ellipse_with_width_derives_height() -> None:
+    """In ellipse mode: R_peak + W → H = W² / (4·R_peak)."""
+    v2 = translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_shape": "ellipse",
+                              "arch_width_mm": 60.0})  # R=30, W=60 → H = 3600/120 = 30
+    assert v2["arch_span_mm"] == pytest.approx(60.0)
+    assert v2["arch_height_mm"] == pytest.approx(30.0)
+
+
+def test_arch_radius_in_ellipse_with_height_derives_width() -> None:
+    """In ellipse mode: R_peak + H → W = 2·√(R_peak · H)."""
+    v2 = translate_v3_to_v2({"arch_radius_mm": 20.0, "arch_shape": "ellipse",
+                              "arch_height_mm": 80.0})  # R=20, H=80 → W = 2·√(1600) = 80
+    assert v2["arch_span_mm"] == pytest.approx(80.0)
+    assert v2["arch_height_mm"] == pytest.approx(80.0)
+
+
+def test_arch_radius_in_ellipse_rejects_overdetermined() -> None:
+    """R + W + H all set in ellipse mode is over-determined."""
+    with pytest.raises(ValueError, match="over-determined"):
+        translate_v3_to_v2({"arch_radius_mm": 30.0, "arch_shape": "ellipse",
+                            "arch_width_mm": 60.0, "arch_height_mm": 40.0})
 
 
 # ── validate_spec ───────────────────────────────────────────────────────────

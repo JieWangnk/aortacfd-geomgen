@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import shutil
 import sys
@@ -162,24 +163,45 @@ def translate_v3_to_v2(v3_params: dict[str, Any]) -> dict[str, Any]:
     v3_params = dict(v3_params)
 
     # ── Expand arch_radius_mm convenience shortcut ─────────────────────────
+    # Meaning depends on arch_shape:
+    #   circle  → R_c (constant arc radius); must be alone
+    #   ellipse → R_peak (curvature radius at the top of the arch);
+    #             may combine with W or H to derive the third dimension
     r_arch_shortcut = float(v3_params.pop("arch_radius_mm", 0.0))
     if r_arch_shortcut > 0:
-        if "arch_width_mm" in v3_params or "arch_height_mm" in v3_params:
-            raise ValueError(
-                "arch_radius_mm cannot be combined with arch_width_mm or "
-                "arch_height_mm — they would conflict. Use arch_radius_mm "
-                "alone for a canonical U-arch, or use width+height directly "
-                "for non-U arches."
-            )
         shape = v3_params.get("arch_shape", "circle")
-        if shape != "circle":
-            raise ValueError(
-                f"arch_radius_mm requires arch_shape='circle' (got {shape!r}). "
-                f"Ellipses have variable curvature — use arch_width_mm + "
-                f"arch_height_mm directly in ellipse mode."
-            )
-        v3_params["arch_width_mm"] = 2.0 * r_arch_shortcut
-        v3_params["arch_height_mm"] = r_arch_shortcut
+        has_w = "arch_width_mm" in v3_params
+        has_h = "arch_height_mm" in v3_params
+
+        if shape == "circle":
+            if has_w or has_h:
+                raise ValueError(
+                    "arch_radius_mm cannot be combined with arch_width_mm or "
+                    "arch_height_mm in circle mode — they would conflict "
+                    "(R_c uniquely determines both W and H of the U-arch). "
+                    "Use arch_radius_mm alone, or W+H directly."
+                )
+            v3_params["arch_width_mm"] = 2.0 * r_arch_shortcut
+            v3_params["arch_height_mm"] = r_arch_shortcut
+        else:  # ellipse — arch_radius_mm = R_peak (curvature at top)
+            if has_w and has_h:
+                raise ValueError(
+                    "arch_radius_mm + arch_width_mm + arch_height_mm is "
+                    "over-determined in ellipse mode (R_peak is fully "
+                    "determined by W and H alone — drop one of them)."
+                )
+            if has_w:
+                # H = W² / (4·R_peak)
+                W = float(v3_params["arch_width_mm"])
+                v3_params["arch_height_mm"] = (W * W) / (4.0 * r_arch_shortcut)
+            elif has_h:
+                # W = 2·√(R_peak · H)
+                H = float(v3_params["arch_height_mm"])
+                v3_params["arch_width_mm"] = 2.0 * math.sqrt(r_arch_shortcut * H)
+            else:
+                # Alone — degenerate to a circular U-arch (a = b = R)
+                v3_params["arch_width_mm"] = 2.0 * r_arch_shortcut
+                v3_params["arch_height_mm"] = r_arch_shortcut
 
     # ── Standard v3 → v2 name translation ──────────────────────────────────
     v2: dict[str, Any] = dict(V2_FIXED)
