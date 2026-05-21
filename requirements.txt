@@ -1,0 +1,9 @@
+# Required for all CLIs (v1, v2, v3) and split_patches.py
+numpy
+scipy
+numpy-stl     # NOTE: package is `numpy-stl` (hyphen), the import is `from stl import mesh`
+
+# Required for the PyVista 3D figure scripts (scripts_v2/build_*.py).
+# Skip these if you only need to generate STLs, not render galleries.
+pyvista
+matplotlib

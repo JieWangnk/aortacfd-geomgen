@@ -33,12 +33,30 @@ of that.
 ### Python deps
 
 ```bash
-pip install numpy numpy-stl scipy
+# Easiest: install everything from the pinned list
+pip install -r requirements.txt
+
+# Or hand-install the minimum:
+pip install numpy scipy numpy-stl
 # Optional, only for the PyVista gallery / figure scripts:
 pip install pyvista matplotlib
 ```
 
 Tested with Python 3.10–3.12.
+
+**Common gotcha**: the package is named `numpy-stl` (with hyphen) but
+the import is `from stl import mesh`. If you `pip install stl` by
+mistake you'll get an unrelated package and see `No module named 'stl'`
+at runtime — uninstall it (`pip uninstall stl`) and install `numpy-stl`.
+
+**On Debian/Ubuntu 24.04+** you may hit `error: externally-managed-environment`
+when using the system Python — use a venv:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 ### Blender (required for STL generation)
 
