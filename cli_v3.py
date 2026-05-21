@@ -89,6 +89,12 @@ PARAMETERS: dict[str, dict[str, Any]] = {
         "group": "Arch",
         "description": "GRADUAL twist along arch [deg] (arch becomes non-planar 3D curve)",
     },
+    "arch_shape": {
+        "type": "str", "default": "circle", "min": None, "max": None,
+        "group": "Arch",
+        "description": "'circle' = constrained to H ≤ W ≤ 2H; 'ellipse' = independent W + H",
+        "choices": ["circle", "ellipse"],
+    },
     "ascending_length": {
         "type": "float", "default": 50.0, "min": 40.0, "max": 90.0,
         "group": "Lengths (optional)",
@@ -109,6 +115,7 @@ V3_TO_V2: dict[str, str] = {
     "arch_height_mm": "arch_height_mm",
     "torsion_deg": "arch_tilt_deg",
     "twist_deg": "arch_twist_deg",
+    "arch_shape": "arch_shape",
     "ascending_length": "ascending_length",
     "descending_length": "descending_length",
 }
@@ -254,6 +261,8 @@ def _parse_param_override(s: str) -> tuple[str, Any]:
     t = PARAMETERS[key]["type"]
     if t == "int":
         return key, int(value)
+    if t == "str":
+        return key, value
     return key, float(value)
 
 

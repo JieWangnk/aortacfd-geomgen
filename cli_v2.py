@@ -147,6 +147,13 @@ PARAMETERS: dict[str, dict[str, Any]] = {
         "description": "Cubic-Bezier blend width at each arch junction [mm] "
                        "(0 = sharp circular-arc corners)",
     },
+    "arch_shape": {
+        "type": "str", "default": "circle", "min": None, "max": None,
+        "group": "Arch curvature",
+        "description": "Arch parametrisation: 'circle' = arc with constraint H ≤ W ≤ 2H, "
+                       "'ellipse' = independent W + H (any positive values)",
+        "choices": ["circle", "ellipse"],
+    },
     # ── Direct (span, peak-height) alternatives to (R_c, angle) ──────────────
     # Setting BOTH arch_span_mm and arch_height_mm overrides arch_R_c and
     # arch_angle_deg via the closed-form inverse (see _resolve_arch_params).
@@ -209,6 +216,9 @@ DIRECT_FLAGS: dict[str, str] = {
     "descending_length": "--descending_length",
     "arch_R_c": "--arch_R_c",
     "arch_angle_deg": "--arch_angle_deg",
+    "arch_shape": "--arch_shape",
+    "arch_span_mm": "--arch_span_mm",
+    "arch_height_mm": "--arch_height_mm",
     "arch_tilt_deg": "--arch_tilt_deg",
     "arch_twist_deg": "--arch_twist_deg",
     "junction_blend_mm": "--junction_blend_mm",
@@ -530,6 +540,25 @@ def _resolve_arch_params(params: dict[str, Any]) -> dict[str, Any]:
       - If both set: replace with arch_R_c and arch_angle_deg, deleting
         the span/height keys. The Blender generator never sees them.
     """
+    # arch_shape='ellipse' bypass: keep span+height, do NOT compute R_c/angle.
+    # The Blender generator builds an elliptical arc directly from W+H, so
+    # the H ≤ W ≤ 2H constraint doesn't apply.
+    shape = params.get("arch_shape", "circle")
+    if shape == "ellipse":
+        if "arch_span_mm" not in params or "arch_height_mm" not in params:
+            raise ValueError(
+                "arch_shape='ellipse' requires both arch_span_mm and arch_height_mm "
+                "to be set explicitly (no defaults for the ellipse path)."
+            )
+        if float(params["arch_span_mm"]) <= 0 or float(params["arch_height_mm"]) <= 0:
+            raise ValueError(
+                "arch_shape='ellipse' requires arch_span_mm > 0 and arch_height_mm > 0"
+            )
+        # Pass span+height through unchanged. R_c/angle keys ignored by Blender
+        # in ellipse mode but harmless to leave in (Blender script branches on shape).
+        return params
+
+    # arch_shape='circle' — existing closed-form inverse with the H ≤ W ≤ 2H constraint
     has_span = "arch_span_mm" in params
     has_height = "arch_height_mm" in params
     if not has_span and not has_height:
@@ -549,8 +578,8 @@ def _resolve_arch_params(params: dict[str, Any]) -> dict[str, Any]:
     if not (H - 1e-9 <= S <= 2 * H + 1e-9):
         raise ValueError(
             f"arch_span_mm ({S}) must satisfy arch_height_mm ≤ span ≤ 2·height, "
-            f"i.e. {H} ≤ {S} ≤ {2*H}. For over-arched cases (θ > 180°) use "
-            f"arch_R_c + arch_angle_deg directly."
+            f"i.e. {H} ≤ {S} ≤ {2*H}. For independent W + H, set arch_shape='ellipse'. "
+            f"For over-arched (θ > 180°), use arch_R_c + arch_angle_deg directly."
         )
 
     R_c = H

@@ -25,10 +25,11 @@ from cli_v2 import (  # noqa: E402
 
 
 def test_parameters_dict_has_expected_count() -> None:
-    # 17 parameters total: 3 radii + 1 taper_mode + 2 lengths + 5 curvature
-    # (R_c, angle, tilt, twist, junction_blend) + 2 direct curvature alternatives
-    # (arch_span_mm, arch_height_mm) + 2 non-planar Fourier (δ_3, δ_4) + 2 mesh
-    assert len(PARAMETERS) == 17
+    # 18 parameters total: 3 radii + 1 taper_mode + 2 lengths + 6 curvature
+    # (R_c, angle, tilt, twist, junction_blend, arch_shape) + 2 direct curvature
+    # alternatives (arch_span_mm, arch_height_mm) + 2 non-planar Fourier
+    # (δ_3, δ_4) + 2 mesh
+    assert len(PARAMETERS) == 18
 
 
 def test_every_parameter_has_required_keys() -> None:
@@ -283,6 +284,35 @@ def test_resolve_arch_rejects_span_gt_2height() -> None:
     """Span > 2·height implies over-arched (θ > 180°) — unsolvable from peak height."""
     with pytest.raises(ValueError, match="must satisfy"):
         _resolve_arch_params({"arch_span_mm": 90.0, "arch_height_mm": 40.0})
+
+
+def test_resolve_arch_ellipse_mode_skips_inverse() -> None:
+    """When arch_shape='ellipse', span+height are passed through unchanged
+    (no closed-form inverse to R_c/angle)."""
+    p = _resolve_arch_params({
+        "arch_shape": "ellipse",
+        "arch_span_mm": 30.0,
+        "arch_height_mm": 80.0,  # W < H — would be rejected in circle mode
+    })
+    assert p["arch_shape"] == "ellipse"
+    assert p["arch_span_mm"] == 30.0
+    assert p["arch_height_mm"] == 80.0
+    # R_c / angle keys NOT added (Blender uses span+height in ellipse mode)
+    assert "arch_R_c" not in p
+    assert "arch_angle_deg" not in p
+
+
+def test_resolve_arch_ellipse_requires_both_dims() -> None:
+    with pytest.raises(ValueError, match="requires both"):
+        _resolve_arch_params({"arch_shape": "ellipse", "arch_span_mm": 30.0})
+    with pytest.raises(ValueError, match="requires both"):
+        _resolve_arch_params({"arch_shape": "ellipse", "arch_height_mm": 80.0})
+
+
+def test_resolve_arch_ellipse_rejects_nonpositive() -> None:
+    with pytest.raises(ValueError, match="> 0"):
+        _resolve_arch_params({"arch_shape": "ellipse",
+                              "arch_span_mm": 30.0, "arch_height_mm": 0.0})
 
 
 def test_resolve_arch_round_trip_through_expand_cases() -> None:

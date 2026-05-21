@@ -72,13 +72,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--descending_length", type=float, default=200.0,
                         help="Descending aorta length [mm].")
 
-    # Arch geometry — clinical R_c + subtended angle
+    # Arch shape — circle (R_c + angle) or ellipse (independent W + H)
+    parser.add_argument("--arch_shape", choices=["circle", "ellipse"], default="circle",
+                        help="Arch parametrisation. 'circle' uses arch_R_c + arch_angle_deg "
+                             "(arch is a circular arc; constraint H ≤ W ≤ 2H). 'ellipse' uses "
+                             "arch_span_mm + arch_height_mm DIRECTLY as independent semi-axes "
+                             "(arch is a half-ellipse; any positive W and H works).")
+    # Arch geometry — clinical R_c + subtended angle (used when arch_shape='circle')
     parser.add_argument("--arch_R_c", type=float, default=40.4,
-                        help="Arch radius of curvature [mm]. Default from SynthAorta Table I "
-                             "Gumbel(40.4, 2.4). Clinical: Choi 2017, Saitta 2022.")
+                        help="Arch radius of curvature [mm] (circle mode). Default from "
+                             "SynthAorta Table I Gumbel(40.4, 2.4).")
     parser.add_argument("--arch_angle_deg", type=float, default=180.0,
-                        help="Subtended angle of the arch arc [deg]. 180=U-arch, "
-                             "<180=shallow, >180=over-arched. Engineering range [120, 200].")
+                        help="Subtended angle of the arc [deg] (circle mode). 180=U-arch, "
+                             "<180=shallow, >180=over-arched.")
+    # Arch geometry — direct W + H (used when arch_shape='ellipse')
+    parser.add_argument("--arch_span_mm", type=float, default=0.0,
+                        help="Arch horizontal extent [mm] (ellipse mode). Required when "
+                             "arch_shape=ellipse.")
+    parser.add_argument("--arch_height_mm", type=float, default=0.0,
+                        help="Arch peak height above ascending top [mm] (ellipse mode). "
+                             "Required when arch_shape=ellipse.")
     parser.add_argument("--arch_tilt_deg", type=float, default=0.0,
                         help="RIGID rotation of the arch+descending segments around the "
                              "inlet z-axis [deg]. 0=arch lies in xz-plane (default). "
@@ -340,6 +353,11 @@ def apply_nonplanar_displacement(points: list[Vector],
     return out
 
 
+def _half_ellipse_arc_length(a: float, b: float) -> float:
+    """Half-perimeter of an ellipse with semi-axes (a, b) — Ramanujan approx."""
+    return (math.pi / 2.0) * (3.0 * (a + b) - math.sqrt((3.0 * a + b) * (a + 3.0 * b)))
+
+
 def _cubic_bezier(p0: Vector, p1: Vector, p2: Vector, p3: Vector, t: float) -> Vector:
     u = 1.0 - t
     return (u * u * u) * p0 + (3.0 * u * u * t) * p1 + (3.0 * u * t * t) * p2 + (t * t * t) * p3
@@ -520,6 +538,160 @@ def build_centreline(asc_len: float, R_c: float, angle_deg: float, desc_len: flo
     arch_geom["junction_blend_mm"] = blend
     arch_geom["desc_dir"] = (desc_dir.x, desc_dir.y, desc_dir.z)
     arch_geom["outlet_xyz"] = (points[-1].x, points[-1].y, points[-1].z)
+    arch_geom["shape"] = "circle"
+    return points, arc_s_exact, arch_geom
+
+
+def build_centreline_ellipse(asc_len: float, span_mm: float, height_mm: float,
+                              desc_len: float, curve_samples: int,
+                              junction_blend_mm: float = 12.0,
+                              ) -> tuple[list[Vector], list[float], dict]:
+    """Centreline with an ELLIPTICAL half-arch — span and height are independent.
+
+    Arch parametrisation (φ ∈ [0, π]):
+        x(φ) = (span/2)·(1 − cos φ)
+        z(φ) = ascending_top + height·sin(φ)
+    Endpoints (0, 0, asc_top) → (span, 0, asc_top); tangent at both is vertical.
+    Peak at φ=π/2 sits at (span/2, 0, asc_top + height). Any positive span
+    and height work — no H ≤ W ≤ 2H constraint (that was a circular-arc
+    artefact).
+
+    Same 5-segment composition as ``build_centreline``:
+        [Ascending straight] [Blend1] [Elliptical arc] [Blend2] [Descending]
+
+    junction_blend_mm = 0 reverts to sharp ascending/arc/desc corners.
+    """
+    a = span_mm * 0.5      # horizontal semi-axis
+    b = height_mm          # vertical semi-axis
+    if a <= 0 or b <= 0:
+        raise ValueError(f"arch_span_mm ({span_mm}) and arch_height_mm "
+                         f"({height_mm}) must both be > 0 in ellipse mode")
+    arc_len_arc = _half_ellipse_arc_length(a, b)
+
+    blend = max(0.0, float(junction_blend_mm))
+    blend = min(blend, asc_len * 0.5, desc_len * 0.5, arc_len_arc * 0.5)
+    half = blend * 0.5
+
+    # phi at blend ends — approximate by proportional arc length (the
+    # blend regions are small; exact arc-length inversion isn't needed
+    # for visual smoothness).
+    phi_blend = (half / arc_len_arc) * math.pi if arc_len_arc > 0 else 0.0
+    phi_arc_end = math.pi - phi_blend
+
+    def _ellipse_pt(phi: float) -> Vector:
+        return Vector((a * (1.0 - math.cos(phi)), 0.0, asc_len + b * math.sin(phi)))
+
+    def _ellipse_tan(phi: float) -> Vector:
+        tx = a * math.sin(phi)
+        tz = b * math.cos(phi)
+        norm = math.hypot(tx, tz)
+        if norm < EPS:
+            return Vector((0.0, 0.0, 1.0))
+        return Vector((tx / norm, 0.0, tz / norm))
+
+    p_inlet = Vector((0.0, 0.0, 0.0))
+    p_asc_blend_start = Vector((0.0, 0.0, asc_len - half))
+    asc_tangent = Vector((0.0, 0.0, 1.0))
+
+    p_arc_start = _ellipse_pt(phi_blend)
+    arc_start_tangent = _ellipse_tan(phi_blend)
+    p_arc_end = _ellipse_pt(phi_arc_end)
+    arc_end_tangent = _ellipse_tan(phi_arc_end)
+
+    arch_end_full = _ellipse_pt(math.pi)        # = (2a, 0, asc_len)
+    desc_dir = Vector((0.0, 0.0, -1.0))         # ellipse tangent at φ=π is exactly -z
+    p_desc_blend_end = arch_end_full + desc_dir * half
+    p_outlet = arch_end_full + desc_dir * desc_len
+
+    seg_lens = {
+        "asc": max(0.0, asc_len - half),
+        "b1": blend,
+        "arc": max(0.0, arc_len_arc - blend),
+        "b2": blend,
+        "desc": max(0.0, desc_len - half),
+    }
+    total_eff = sum(seg_lens.values())
+
+    def alloc(name: str, floor: int) -> int:
+        return max(floor, int(round(curve_samples * seg_lens[name] / total_eff))) \
+               if total_eff > 0 else floor
+    n_asc = alloc("asc", 2)
+    n_b1 = alloc("b1", 6 if blend > 0 else 0)
+    n_arc = alloc("arc", 4)
+    n_b2 = alloc("b2", 6 if blend > 0 else 0)
+    n_desc = alloc("desc", 2)
+
+    points: list[Vector] = []
+    arc_s: list[float] = []
+
+    # 1) Ascending straight
+    for i in range(n_asc):
+        t = i / (n_asc - 1) if n_asc > 1 else 0.0
+        points.append(p_inlet.lerp(p_asc_blend_start, t))
+        arc_s.append(seg_lens["asc"] * t)
+    s = seg_lens["asc"]
+
+    # 2) Blend1 (cubic Bezier)
+    if blend > 0 and n_b1 > 0:
+        chord = (p_arc_start - p_asc_blend_start).length
+        L = chord / 3.0
+        h0 = p_asc_blend_start + L * asc_tangent
+        h1 = p_arc_start - L * arc_start_tangent
+        for i in range(1, n_b1):
+            t = i / (n_b1 - 1)
+            points.append(_cubic_bezier(p_asc_blend_start, h0, h1, p_arc_start, t))
+            arc_s.append(s + blend * t)
+        s += blend
+
+    # 3) Elliptical arc
+    phi_extent = phi_arc_end - phi_blend
+    arc_section_len = seg_lens["arc"]
+    for i in range(1, n_arc):
+        t = i / (n_arc - 1)
+        phi = phi_blend + phi_extent * t
+        points.append(_ellipse_pt(phi))
+        arc_s.append(s + arc_section_len * t)
+    s += arc_section_len
+
+    # 4) Blend2
+    if blend > 0 and n_b2 > 0:
+        chord = (p_desc_blend_end - p_arc_end).length
+        L = chord / 3.0
+        h0 = p_arc_end + L * arc_end_tangent
+        h1 = p_desc_blend_end - L * desc_dir
+        for i in range(1, n_b2):
+            t = i / (n_b2 - 1)
+            points.append(_cubic_bezier(p_arc_end, h0, h1, p_desc_blend_end, t))
+            arc_s.append(s + blend * t)
+        s += blend
+
+    # 5) Descending straight
+    for i in range(1, n_desc + 1):
+        t = i / n_desc
+        points.append(p_desc_blend_end + desc_dir * (seg_lens["desc"] * t))
+        arc_s.append(s + seg_lens["desc"] * t)
+
+    arc_s_exact = [0.0]
+    for i in range(1, len(points)):
+        arc_s_exact.append(arc_s_exact[-1] + (points[i] - points[i - 1]).length)
+
+    arch_geom = {
+        "shape": "ellipse",
+        "span": span_mm,
+        "peak_dz": height_mm,
+        "end_dz": 0.0,             # ellipse always ends at z = asc_len
+        "theta_rad": math.pi,
+        "arch_len": arc_len_arc,
+        "total_arc": arc_s_exact[-1],
+        "n_asc": n_asc,
+        "n_arc": n_arc,
+        "n_desc": n_desc,
+        "n_blend1": n_b1,
+        "n_blend2": n_b2,
+        "junction_blend_mm": blend,
+        "desc_dir": (desc_dir.x, desc_dir.y, desc_dir.z),
+        "outlet_xyz": (points[-1].x, points[-1].y, points[-1].z),
+    }
     return points, arc_s_exact, arch_geom
 
 
@@ -681,11 +853,17 @@ def main() -> int:
     args = parse_args()
 
     # Validate
-    if args.arch_angle_deg < 30 or args.arch_angle_deg > 270:
-        raise SystemExit(f"arch_angle_deg {args.arch_angle_deg} out of geometric "
-                         f"sanity range [30, 270] deg")
-    if args.arch_R_c <= 0:
-        raise SystemExit(f"arch_R_c must be > 0, got {args.arch_R_c}")
+    if args.arch_shape == "circle":
+        if args.arch_angle_deg < 30 or args.arch_angle_deg > 270:
+            raise SystemExit(f"arch_angle_deg {args.arch_angle_deg} out of geometric "
+                             f"sanity range [30, 270] deg")
+        if args.arch_R_c <= 0:
+            raise SystemExit(f"arch_R_c must be > 0, got {args.arch_R_c}")
+    else:  # ellipse
+        if args.arch_span_mm <= 0 or args.arch_height_mm <= 0:
+            raise SystemExit(f"arch_shape=ellipse requires both --arch_span_mm and "
+                             f"--arch_height_mm > 0, got span={args.arch_span_mm}, "
+                             f"height={args.arch_height_mm}")
     if min(args.r_ascending, args.r_arch, args.r_descending) <= 0:
         raise SystemExit("All segment radii must be > 0")
 
@@ -697,14 +875,24 @@ def main() -> int:
 
     clean_scene()
 
-    centres, arc_s, arch_geom = build_centreline(
-        asc_len=args.ascending_length,
-        R_c=args.arch_R_c,
-        angle_deg=args.arch_angle_deg,
-        desc_len=args.descending_length,
-        curve_samples=args.curve_samples,
-        junction_blend_mm=args.junction_blend_mm,
-    )
+    if args.arch_shape == "ellipse":
+        centres, arc_s, arch_geom = build_centreline_ellipse(
+            asc_len=args.ascending_length,
+            span_mm=args.arch_span_mm,
+            height_mm=args.arch_height_mm,
+            desc_len=args.descending_length,
+            curve_samples=args.curve_samples,
+            junction_blend_mm=args.junction_blend_mm,
+        )
+    else:  # "circle"
+        centres, arc_s, arch_geom = build_centreline(
+            asc_len=args.ascending_length,
+            R_c=args.arch_R_c,
+            angle_deg=args.arch_angle_deg,
+            desc_len=args.descending_length,
+            curve_samples=args.curve_samples,
+            junction_blend_mm=args.junction_blend_mm,
+        )
 
     # Rotate arch+descending around inlet z-axis by arch_tilt_deg (rigid).
     centres = apply_arch_tilt(centres, args.arch_tilt_deg,
@@ -790,8 +978,11 @@ def main() -> int:
                 "r_descending": args.r_descending,
                 "taper_mode": args.taper_mode,
                 "ascending_length": args.ascending_length,
+                "arch_shape": args.arch_shape,
                 "arch_R_c": args.arch_R_c,
                 "arch_angle_deg": args.arch_angle_deg,
+                "arch_span_mm": args.arch_span_mm,
+                "arch_height_mm": args.arch_height_mm,
                 "arch_tilt_deg": args.arch_tilt_deg,
                 "arch_twist_deg": args.arch_twist_deg,
                 "junction_blend_mm": args.junction_blend_mm,

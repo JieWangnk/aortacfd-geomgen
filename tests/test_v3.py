@@ -25,9 +25,9 @@ from cli_v3 import (  # noqa: E402
 # ── PARAMETERS schema ───────────────────────────────────────────────────────
 
 
-def test_v3_has_8_parameters() -> None:
-    # 5 primary (radii + arch) + twist_deg + 2 optional (lengths)
-    assert len(PARAMETERS) == 8
+def test_v3_has_9_parameters() -> None:
+    # 5 primary (radii + arch) + twist_deg + arch_shape + 2 optional (lengths)
+    assert len(PARAMETERS) == 9
 
 
 def test_v3_primary_knobs_present() -> None:

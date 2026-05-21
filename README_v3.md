@@ -9,7 +9,7 @@ everything else fixed at workshop-quality defaults.
 *v3 baseline — the canonical U-bend pipe. The same 8 inputs produce the
 STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.*
 
-## The 8 knobs
+## The 9 knobs
 
 | # | Knob | Default | What it controls |
 |---|---|---|---|
@@ -17,10 +17,11 @@ STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.
 | 2 | `r_outlet` | 10.0 mm | outlet (descending) radius |
 | 3 | `arch_width_mm` | 90.0 mm | arch horizontal extent (ascending → descending) |
 | 4 | `arch_height_mm` | 45.0 mm | arch peak height above ascending top |
-| 5 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
-| 6 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |
-| 7 | `ascending_length` (opt) | 50.0 mm | straight ascending length before arch |
-| 8 | `descending_length` (opt) | 200.0 mm | straight descending length after arch |
+| 5 | `arch_shape` | `"circle"` | `"circle"` (constraint H ≤ W ≤ 2H) or `"ellipse"` (independent W + H) |
+| 6 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
+| 7 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |
+| 8 | `ascending_length` (opt) | 50.0 mm | straight ascending length before arch |
+| 9 | `descending_length` (opt) | 200.0 mm | straight descending length after arch |
 
 That's it. No taper modes, no R_c vs angle decision, no Fourier multipliers,
 no mesh-resolution knobs. Use [`cli_v2.py`](./README_v2.md) when you need any
@@ -215,6 +216,45 @@ Compute time at ~3 s/case: 16 → ~50 s, 64 → ~3 min, 256 → ~13 min,
 `specs_v2/sample_sobol_v3_8d_gradual_twist.json` and rerun.
 
 ---
+
+## arch_shape — circle vs ellipse (independent W and H)
+
+![arch_shape circle vs ellipse](figures/v3_circle_vs_ellipse.png)
+
+*Same (W, H) inputs, two interpretations. Top row = `arch_shape="circle"`,
+bottom row = `arch_shape="ellipse"`.*
+
+- **`circle` (default)** — arch is a **circular arc** with R_c = H and
+  subtended angle θ = arccos(1 − W/H). This requires `H ≤ W ≤ 2H` (the
+  constraint baked into the closed-form inverse). Outside that window
+  you get a clear error.
+- **`ellipse`** — arch is a **half-ellipse** parametrised as
+  `x(φ) = (W/2)·(1 − cos φ)`, `z(φ) = z₀ + H·sin(φ)`, with `φ ∈ [0, π]`.
+  W and H are independent semi-axes — any positive combination works,
+  including tall narrow (W < H) and very wide flat (W ≫ 2H).
+
+Use ellipse mode whenever you need:
+- W < H (tall narrow arch — circle mode rejects it)
+- W ≫ 2H (very wide flat arch — circle mode rejects it)
+- Exact W and H to match a clinical measurement without worrying about
+  arc-angle constraints
+
+Use circle mode (the default) whenever you want a true circular arc with
+clinically-meaningful radius of curvature R_c (matches SynthAorta's
+parametrisation).
+
+```bash
+# A circle-mode geometry (default)
+python3 cli_v3.py --spec specs_v3/single_baseline_v3.json --output /tmp/v3_circle --yes
+
+# An ellipse-mode tall narrow geometry (W=30, H=80)
+python3 cli_v3.py --spec specs_v3/single_ellipse_v3.json --output /tmp/v3_ellipse --yes
+# or via CLI override on the default spec:
+python3 cli_v3.py --spec specs_v3/single_baseline_v3.json --output /tmp/v3_ellipse --yes \
+    --param arch_shape=ellipse \
+    --param arch_width_mm=30 \
+    --param arch_height_mm=80
+```
 
 ## Torsion vs twist — what's the difference?
 
