@@ -1,147 +1,260 @@
-# Aorta geometry generator — v3 (5-knob minimal interface)
+# Aorta geometry generator — v3 (minimal pipe-U-bend interface)
 
-The shortest path from "I want an aorta with these dimensions" to an STL.
-**Five primary knobs**, two optional length knobs, everything else fixed
-at workshop-quality defaults.
+The shortest path from "I want a U-bend pipe with these dimensions" to a
+ready-to-mesh STL. **Six primary knobs**, two optional length knobs,
+everything else fixed at workshop-quality defaults.
 
 ![v3 baseline](figures/v3_baseline_hero.png)
 
-*v3 baseline render. The same 5-knob input produces the STL on the left
-in ~3 seconds.*
+*v3 baseline — the canonical U-bend pipe. The same 8 inputs produce the
+STL above in ~3 seconds via `cli_v3.py --spec specs_v3/single_baseline_v3.json`.*
 
-![v3 torsion sweep](figures/v3_torsion_oblique_vs_topdown.png)
+## The 8 knobs
 
-*Sweeping `torsion_deg` from -20° to +20° (every other case shown). The
-oblique row barely shows the tilt; the top-down row makes it obvious
-that the descending tube swings around the inlet z-axis as a rigid
-plane rotation.*
+| # | Knob | Default | What it controls |
+|---|---|---|---|
+| 1 | `r_inlet` | 14.0 mm | inlet (ascending) radius |
+| 2 | `r_outlet` | 10.0 mm | outlet (descending) radius |
+| 3 | `arch_width_mm` | 90.0 mm | arch horizontal extent (ascending → descending) |
+| 4 | `arch_height_mm` | 45.0 mm | arch peak height above ascending top |
+| 5 | `torsion_deg` | 0.0° | **rigid** arch tilt around inlet z-axis (arch stays planar in a rotated plane) |
+| 6 | `twist_deg` | 0.0° | **gradual** twist along the arch (arch becomes a non-planar 3D curve) |
+| 7 | `ascending_length` (opt) | 50.0 mm | straight ascending length before arch |
+| 8 | `descending_length` (opt) | 200.0 mm | straight descending length after arch |
 
-![torsion vs twist at 30°](figures/v3_torsion_vs_twist.png)
+That's it. No taper modes, no R_c vs angle decision, no Fourier multipliers,
+no mesh-resolution knobs. Use [`cli_v2.py`](./README_v2.md) when you need any
+of that.
 
-*Rigid `torsion_deg` (left) vs gradual `twist_deg` (right), both at 30°.
-**Bottom row (top-down) is the money shot:** torsion projects as a
-straight sausage at 30° to the y-axis — the arch is still planar, just
-in a rotated plane. Twist projects as a curved hook — the arch is now
-a non-planar 3D curve, because each centreline point is rotated by a
-different angle linearly from 0 at the ascending top to 30° at the
-descending start. Use `torsion_deg` for the anatomical leftward arch
-tilt; use `twist_deg` for helical descending. They compose if you set
-both.*
+---
 
-| Knob | What it controls | Default |
-|---|---|---|
-| `r_inlet` | inlet (ascending) radius [mm] | 14.0 |
-| `r_outlet` | outlet (descending) radius [mm] | 10.0 |
-| `arch_width_mm` | arch horizontal extent (ascending → descending) [mm] | 90.0 |
-| `arch_height_mm` | arch peak height above ascending top [mm] | 45.0 |
-| `torsion_deg` | **rigid** arch tilt around the inlet z-axis [deg] (arch stays planar) | 0.0 |
-| `twist_deg` | **gradual** twist along the arch [deg] (arch becomes non-planar 3D curve) | 0.0 |
-| `ascending_length` (optional) | straight ascending length [mm] | 50.0 |
-| `descending_length` (optional) | straight descending length [mm] | 200.0 |
+## How to generate a pipe U-bend (3 ways)
 
-That's it. No taper modes, no R_c-vs-angle decision, no Fourier multipliers,
-no mesh resolution. Use [`cli_v2.py`](./README_v2.md) when you need any of
-that.
-
-## Quick start
+### Way 1 — One geometry from defaults (smoke test)
 
 ```bash
-# Discover the 5+2 knobs
-python3 cli_v3.py --list-params
+cd /home/mchi4jw4/GitHub/aortacfd-geomgen
 
-# Default baseline (matches outputs/v2_dim/baseline_v2 in dimensions)
-python3 cli_v3.py --spec specs_v3/single_baseline_v3.json --output /tmp/v3
+python3 cli_v3.py \
+    --spec specs_v3/single_baseline_v3.json \
+    --output outputs/v3_baseline \
+    --yes
 
-# Tweak by CLI
-python3 cli_v3.py --spec specs_v3/single_baseline_v3.json --output /tmp/v3_custom \
-    --param r_inlet=16 --param r_outlet=11 \
-    --param arch_width_mm=100 --param arch_height_mm=50 \
-    --param torsion_deg=15
-
-# Sweep torsion from -20° to +20° (10 cases) — the standard "out-of-plane variation" study
-python3 cli_v3.py --spec specs_v3/sweep_torsion_v3.json --output /tmp/v3_torsion --yes
+# Outputs (one folder per case):
+#   outputs/v3_baseline/baseline_v3/
+#     baseline_v3.stl            ← monolithic wall + caps
+#     inlet.stl                  ← inlet cap fan
+#     outlet1.stl                ← outlet cap fan
+#     wall_aorta.stl             ← the U-bend wall
+#     geometry.meta.json         ← v3 knobs + v2 translation
 ```
 
-## How v3 → v2
+Open `wall_aorta.stl` in ParaView, Blender, or any STL viewer.
 
-v3 is a thin wrapper. Internally each case is translated to v2 parameters
-before invoking `blender_aorta_v2.py`:
+### Way 2 — Dial the 8 knobs by CLI (one-shot custom geometry)
 
-| v3 | v2 |
-|---|---|
-| `r_inlet` | `r_ascending` |
-| `r_outlet` | `r_descending` |
-| `arch_width_mm` | `arch_span_mm` (then resolved to `arch_R_c` + `arch_angle_deg`) |
-| `arch_height_mm` | `arch_height_mm` (then resolved to `arch_R_c` + `arch_angle_deg`) |
-| `torsion_deg` | `arch_tilt_deg` |
-| `ascending_length` | `ascending_length` |
-| `descending_length` | `descending_length` |
-
-Plus auto-derived: `r_arch = (r_inlet + r_outlet) / 2`, so the main lumen
-tapers smoothly inlet → midpoint → outlet.
-
-Plus v2 defaults fixed in `cli_v3.V2_FIXED`:
-- `taper_mode = "smoothstep"`
-- `junction_blend_mm = 12.0`
-- `delta_3 = 0.0`, `delta_4 = 0.0` (no Fourier)
-- `segments_radial = 96`, `curve_samples = 300`
-
-## Output
-
-```
-<output>/<case_id>/
-  inlet.stl              # cap fan at z=0 (radius = r_inlet)
-  outlet1.stl            # cap fan at the descending end (radius = r_outlet)
-  wall_aorta.stl         # the vessel wall
-  geometry.meta.json     # records BOTH the v3 inputs and the derived v2 params
+```bash
+python3 cli_v3.py \
+    --spec specs_v3/single_baseline_v3.json \
+    --output outputs/my_custom_pipe \
+    --yes \
+    --param r_inlet=16 \
+    --param r_outlet=12 \
+    --param arch_width_mm=100 \
+    --param arch_height_mm=50 \
+    --param torsion_deg=10 \
+    --param twist_deg=20 \
+    --param ascending_length=60 \
+    --param descending_length=220
 ```
 
-The `geometry.meta.json` carries the original v3 parameter dict you supplied
-plus a `_translated_to_v2` sub-dict showing what `blender_aorta_v2.py`
-actually received — full traceability for reviewers.
+Any subset of knobs you omit takes its default. The single spec file
+is just a starting point; `--param` overrides everything.
 
-## Modes
+### Way 3 — Sweep one knob across a range (10 cases)
 
-v3 supports only **single** and **sweep**. For Sobol / LHS / grid sampling,
-use [`cli_v2.py`](./README_v2.md) and the `specs_v2/sample_sobol_synthaorta_*.json`
-specs.
+```bash
+# Sweep torsion (RIGID tilt) from -20° to +20° in 10 steps
+python3 cli_v3.py --spec specs_v3/sweep_torsion_v3.json --output outputs/v3_torsion --yes
 
-### How many Sobol samples would v3 need (if we added it)?
+# Sweep twist (GRADUAL twist along arch) from -30° to +30° in 10 steps
+python3 cli_v3.py --spec specs_v3/sweep_twist_v3.json --output outputs/v3_twist --yes
+```
 
-5-D parameter space is much cheaper than v2's 9-D. Rule-of-thumb:
+Each sweep writes 10 case folders + a `sweep_manifest.csv` row per case.
+
+---
+
+## How to render a gallery of generated pipes
+
+Once you have a cohort directory (single, sweep, or the Sobol cohort
+below), render it with PyVista:
+
+```bash
+# Use the project venv (PyVista is not in the system Python)
+/home/mchi4jw4/GitHub/.venv/bin/python scripts_v2/build_v2_gallery_pyvista.py \
+    --planar-cohort outputs/v3_torsion \
+    --hero-case outputs/v3_torsion/tors_005
+
+# Output PNGs land in figures/:
+#   v2_cohort_diversity_gallery.png   ← grid view
+#   v2_single_hero.png                ← 3-view hero of the chosen case
+```
+
+---
+
+## Sobol sampling (covers all 8 knobs at once)
+
+v3 itself has only `single` + `sweep` modes — but you can run a Sobol
+sweep over the same 8 dimensions via `cli_v2.py` and a pre-built spec:
+
+```bash
+# 16-case Sobol over the 8 v3-equivalent dimensions, with arch_twist_deg
+# forced into Uniform(10°, 30°) so EVERY case has visible gradual twist.
+python3 cli_v2.py \
+    --spec specs_v2/sample_sobol_v3_8d_gradual_twist.json \
+    --output outputs/v3_sobol_gallery \
+    --yes
+
+# Then render two 4x4 gallery figures (oblique + top-down):
+/home/mchi4jw4/GitHub/.venv/bin/python scripts_v2/build_v3_sobol_gallery.py
+# → figures/v3_sobol_gallery_with_twist.png  (oblique)
+# → figures/v3_sobol_gallery_topdown.png     (top-down — twist hooks visible)
+```
+
+![16-case Sobol gallery, oblique view](figures/v3_sobol_gallery_with_twist.png)
+
+*16 Sobol-sampled pipe U-bends over the 8 v3 knobs. Visible diversity
+in radii, arch shape, lengths, torsion, and twist.*
+
+![Same 16 cases, top-down view](figures/v3_sobol_gallery_topdown.png)
+
+*Top-down view of the same 16 cases. **Every silhouette is a curved
+hook, not a straight sausage** — proof that `twist_deg` is non-zero in
+all cases, producing genuine non-planar 3D arches.*
+
+### How many Sobol samples does v3 need?
+
+8-D parameter space — rule of thumb:
 
 | Use case | N |
 |---|---|
-| Visual diversity gallery | 64-128 |
+| Quick visual gallery | **16** (used above) |
+| Diversity gallery | 64-128 |
 | Marginal validation / pairplot | 128-256 |
-| Sparse-PCE Sobol-index sensitivity (N ≥ 30·dim = 150) | **256** (Sobol-native) |
+| Sparse-PCE / Sobol-index sensitivity (N ≥ 30·dim = 240) | **256** (Sobol-native) |
 | Full-quadratic PCE | 512+ |
 
-**256 is the safe default for 5-D Sobol.** Compute time at ~3 s/case
-gives ~13 min for 256 cases. Currently v3 doesn't expose sample mode —
-file an issue or ask if you need it; in the meantime use v2 with the
-distributions there (and ignore the v2 knobs v3 hides).
+Compute time at ~3 s/case: 16 → ~50 s, 64 → ~3 min, 256 → ~13 min,
+512 → ~26 min. To use a different `N`, edit `n_cases` in
+`specs_v2/sample_sobol_v3_8d_gradual_twist.json` and rerun.
 
-## Validation rules (the closed-form inverse)
+---
 
-`arch_width_mm` and `arch_height_mm` are translated to v2's `arch_R_c` +
+## Torsion vs twist — what's the difference?
+
+![torsion vs twist at 30°](figures/v3_torsion_vs_twist.png)
+
+*Both at 30°: rigid `torsion_deg` (left) vs gradual `twist_deg` (right).
+**Bottom row (top-down) tells the story.** Torsion projects as a
+straight sausage at 30° to the y-axis — the arch is still planar, just
+in a rotated plane. Twist projects as a curved hook — the arch is now a
+non-planar 3D curve, because each centreline point is rotated by a
+different angle linearly from 0 at the ascending top to 30° at the
+descending start. Use `torsion_deg` for anatomical leftward arch tilt;
+use `twist_deg` for helical descending. Both compose if you set both.*
+
+---
+
+## How v3 translates to v2 under the hood
+
+v3 is a thin wrapper. Internally each case is converted to v2 parameter
+names before `blender_aorta_v2.py` is invoked.
+
+| v3 knob | v2 parameter |
+|---|---|
+| `r_inlet` | `r_ascending` |
+| `r_outlet` | `r_descending` |
+| `arch_width_mm` | `arch_span_mm` → `arch_R_c` + `arch_angle_deg` via closed-form inverse |
+| `arch_height_mm` | `arch_height_mm` → `arch_R_c` + `arch_angle_deg` |
+| `torsion_deg` | `arch_tilt_deg` |
+| `twist_deg` | `arch_twist_deg` |
+| `ascending_length` | `ascending_length` |
+| `descending_length` | `descending_length` |
+
+Auto-derived for you: `r_arch = (r_inlet + r_outlet) / 2`, so the main
+lumen tapers smoothly inlet → midpoint → outlet.
+
+Fixed at v3 defaults (not exposed):
+
+- `taper_mode = "smoothstep"`
+- `junction_blend_mm = 12.0` (Bezier-blended corners — no visible folds)
+- `delta_3 = 0.0`, `delta_4 = 0.0` (no SynthAorta Fourier wobble)
+- `segments_radial = 96`, `curve_samples = 300`
+
+## Closed-form inverse — when v3 fails over to v2
+
+`arch_width_mm` and `arch_height_mm` are translated to `arch_R_c` +
 `arch_angle_deg` via:
 
 ```
-R_c   = arch_height_mm
-θ     = arccos(1 − arch_width_mm / arch_height_mm)
+R_c = arch_height_mm
+θ   = arccos(1 − arch_width_mm / arch_height_mm)
 ```
 
-This requires **`arch_height_mm ≤ arch_width_mm ≤ 2 · arch_height_mm`**
-(arch subtended angle θ ∈ [90°, 180°]). Outside this window, you get a
-clear error and a pointer to `cli_v2.py` for over-arched (θ > 180°)
-geometries.
+This requires `arch_height_mm ≤ arch_width_mm ≤ 2 · arch_height_mm` (arch
+subtended angle θ ∈ [90°, 180°]). Outside this range you get a clear
+error message pointing you at `cli_v2.py` for over-arched geometries
+(θ > 180°).
+
+---
+
+## Output schema per case
+
+```
+<output>/<case_id>/
+  <case_id>.stl              # monolithic STL (root CAD file)
+  <case_id>.json             # Blender-side sidecar (cap positions, normals)
+  inlet.stl                  # split: inlet cap (radius = r_inlet)
+  outlet1.stl                # split: outlet cap (radius = r_outlet)
+  wall_aorta.stl             # split: vessel wall
+  geometry.meta.json         # provenance — both v3 knobs and v2 translation
+```
+
+`geometry.meta.json` example for the baseline:
+
+```json
+"params": {
+  "r_inlet": 14.0,
+  "r_outlet": 10.0,
+  "arch_width_mm": 90.0,
+  "arch_height_mm": 45.0,
+  "torsion_deg": 0.0,
+  "twist_deg": 0.0,
+  "_translated_to_v2": {
+    "r_ascending": 14.0, "r_descending": 10.0, "r_arch": 12.0,
+    "arch_R_c": 45.0, "arch_angle_deg": 180.0,
+    "arch_tilt_deg": 0.0, "arch_twist_deg": 0.0,
+    "taper_mode": "smoothstep", "junction_blend_mm": 12.0,
+    "delta_3": 0.0, "delta_4": 0.0,
+    "segments_radial": 96, "curve_samples": 300
+  }
+}
+```
+
+This double-record means you can replay any geometry exactly by either
+v3 or v2 — full traceability.
+
+---
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `cli_v3.py` | Minimal 5+2 knob orchestrator |
-| `specs_v3/single_baseline_v3.json` | Reference baseline (matches user dim test) |
+| `cli_v3.py` | The 8-knob orchestrator |
+| `specs_v3/single_baseline_v3.json` | Canonical baseline pipe U-bend |
 | `specs_v3/sweep_torsion_v3.json` | 10-step torsion sweep [-20°, +20°] |
-| `tests/test_v3.py` | 16 tests, no Blender required |
+| `specs_v3/sweep_twist_v3.json` | 10-step gradual-twist sweep [-30°, +30°] |
+| `specs_v2/sample_sobol_v3_8d_gradual_twist.json` | 16-case Sobol over 8 v3 knobs (v2-syntax) |
+| `scripts_v2/build_v3_sobol_gallery.py` | PyVista 4×4 gallery renderer for the Sobol cohort |
+| `tests/test_v3.py` | 17 tests for the v3 schema + translation (no Blender required) |
