@@ -33,11 +33,21 @@ python3 cli_v3.py --spec specs_v3/single_baseline_v3.json --output /tmp/v3_custo
 
 ```
 <output>/<case_id>/
-  inlet.stl              # ascending cap (radius = r_inlet)
-  outlet1.stl            # descending cap (radius = r_outlet)
-  wall_aorta.stl         # vessel wall
-  geometry.meta.json     # provenance (v3 inputs + v2 translation)
+  inlet.stl                    # ascending cap (radius = r_inlet)
+  outlet1.stl                  # descending cap (radius = r_outlet)
+  wall_aorta.stl               # vessel wall
+  <case_id>.stl                # monolithic wall+caps (pre-split)
+  <case_id>.json               # Blender-side sidecar (cap positions/normals)
+  <case_id>_centreline.csv     # centerline points + radii (auto-exported)
+  geometry.meta.json           # provenance (v3 inputs + v2 translation)
 ```
+
+The centerline CSV has columns `index, x_mm, y_mm, z_mm, arc_length_mm, radius_mm`
+— one row per centerline sample (~300 points by default). Useful for:
+- ParaView visualisation (`CSV Reader` → `Table To Points`)
+- numpy/pandas analysis
+- Computing flow-rate-vs-arc-length downstream
+- Comparing geometries via centerline metrics
 
 ## The knobs
 

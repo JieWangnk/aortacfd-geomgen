@@ -1,7 +1,7 @@
 {
   "schema_version": "3.0",
   "name": "single_baseline_v3",
-  "_doc": "Five-knob v3 baseline matching outputs/v2_dim/baseline_v2 (the user reference). Width 90, height 45, inlet 14, outlet 10, no torsion. r_arch derived as midpoint (12.0) internally.",
+  "_doc": "Canonical v3 baseline pipe U-bend. All 7 primary knobs shown explicitly (radii + arch dimensions + lengths + twist/torsion at 0) so this spec is a complete and copy-friendly starting point.",
 
   "mode": "single",
   "geometry": "healthy_arch_v3",
@@ -12,6 +12,9 @@
     "r_outlet": 10.0,
     "arch_width_mm": 90.0,
     "arch_height_mm": 45.0,
-    "torsion_deg": 0.0
+    "ascending_length": 50.0,
+    "descending_length": 200.0,
+    "torsion_deg": 0.0,
+    "twist_deg": 0.0
   }
 }
