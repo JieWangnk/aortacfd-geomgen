@@ -29,7 +29,7 @@ to stamp a ``config.json`` on every case.
 
 Usage::
 
-    blender -b -P cli.py -- --spec specs/sample_sobol_50.json --output /tmp/gen_sobol
+    blender -b -P cli.py -- --spec specs/reference_v1.json --output /tmp/gen_ref
     # or as a regular Python script (no Blender on PATH; spawns blender):
     python cli.py --spec specs/single_baseline.json --output /tmp/gen_single
 """

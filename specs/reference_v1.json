@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "name": "reference_v1",
+  "_doc": "Full v1 (cli.py) parameter reference. Every knob set to its workshop default; runnable as a single-mode smoke test. The _comments block annotates each parameter — top-level _* keys are ignored by the validator. For ranges and citations see PARAMETERS.md.",
+
+  "_comments": {
+    "diameter": "Main lumen diameter [mm]. Workshop range 18-40. Default 24.",
+    "ascending_length": "Ascending aorta length [mm]. Workshop range 30-60. Default 45.",
+    "arch_span": "Arch horizontal extent ascending->descending [mm]. Workshop range 55-90. Default 70.",
+    "arch_height": "Arch rise above ascending top [mm]. Workshop range 20-50. Default 35.",
+    "descending_length": "Descending aorta length [mm]. Workshop range 60-250. Default 80.",
+    "branch_count": "Number of supra-aortic branches (1, 2, or 3). Default 3.",
+    "branch_diameter_ratio": "Branch diameter / main diameter. Workshop range 0.30-0.55. Default 0.42.",
+    "branch_length": "Branch outlet extension length [mm]. Workshop range 20-60. Default 35.",
+    "branch_spacing": "Spacing of branch origins along arch [mm]. Workshop range 8-20. Default 14.",
+    "branch_tilt_deg": "Branch take-off tilt from +x toward +z [deg]. Workshop range 30-80. Default 60.",
+    "branch_splay_deg": "Out-of-plane branch splay magnitude [deg]. Workshop range 0-40. Default 22.",
+    "coarctation_area_reduction": "Area reduction at the throat (0 = healthy, 0.9 = critical). Default 0.65.",
+    "coarctation_length": "Axial length of the smooth coarctation [mm]. Workshop range 10-40. Default 30.",
+    "coarctation_centre_fraction": "Centre location along centreline arc [0-1]. Workshop range 0.5-0.9. Default 0.72.",
+    "proximal_hypoplasia": "Smooth proximal arch diameter reduction [0-0.25]. Default 0.0.",
+    "roughness": "Enable mild radial surface roughness. Default false.",
+    "noise_amplitude": "Roughness amplitude [mm]. Workshop range 0.1-1.0. Default 0.35.",
+    "noise_scale": "Roughness spatial scale. Workshop range 0.05-0.5. Default 0.08.",
+    "segments_radial": "Circumferential ring vertices. Workshop range 32-128. Default 64.",
+    "curve_samples": "Main centreline sample count. Workshop range 100-400. Default 220.",
+    "cylinder_vertices": "Cylinder vertices for branches. Workshop range 32-128. Default 64."
+  },
+
+  "mode": "single",
+  "geometry": "arch_branched_coarctation",
+  "case_id": "reference_v1",
+
+  "params": {
+    "diameter": 24.0,
+    "ascending_length": 45.0,
+    "arch_span": 70.0,
+    "arch_height": 35.0,
+    "descending_length": 80.0,
+    "branch_count": 3,
+    "branch_diameter_ratio": 0.42,
+    "branch_length": 35.0,
+    "branch_spacing": 14.0,
+    "branch_tilt_deg": 60.0,
+    "branch_splay_deg": 22.0,
+    "coarctation_area_reduction": 0.65,
+    "coarctation_length": 30.0,
+    "coarctation_centre_fraction": 0.72,
+    "proximal_hypoplasia": 0.0,
+    "roughness": false,
+    "noise_amplitude": 0.35,
+    "noise_scale": 0.08,
+    "segments_radial": 64,
+    "curve_samples": 220,
+    "cylinder_vertices": 64
+  }
+}

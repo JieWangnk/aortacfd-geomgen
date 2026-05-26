@@ -1,0 +1,49 @@
+{
+  "schema_version": "2.0",
+  "name": "reference_v2",
+  "_doc": "Full v2 (cli_v2.py) parameter reference. Every knob set explicitly to its SynthAorta-mean default; runnable as a single-mode smoke test. The _comments block annotates each parameter (top-level _* keys are ignored by the validator). For default distributions and citations see PARAMETERS_v2.md.",
+
+  "_comments": {
+    "r_ascending": "Ascending aorta radius [mm]. Default 13.7 (SynthAorta mean). Workshop range 8-22.",
+    "r_arch": "Arch radius [mm]. Default 13.0. Workshop range 8-20.",
+    "r_descending": "Descending aorta radius [mm]. Default 12.2. Workshop range 8-20.",
+    "taper_mode": "Radius blending across segment boundaries: piecewise / linear / smoothstep. Default smoothstep.",
+    "ascending_length": "Ascending aorta length [mm]. Default 50. Workshop range 40-90.",
+    "descending_length": "Descending aorta length [mm]. Default 200. Workshop range 150-300.",
+    "arch_R_c": "Arch radius of curvature [mm]. Default 40.4 (Gumbel mode). Workshop range 25-60.",
+    "arch_angle_deg": "Subtended angle of the arch arc [deg]. Default 180. Workshop range 120-200.",
+    "arch_tilt_deg": "RIGID rotation of arch+descending around inlet z-axis [deg]. Default 0. Workshop range -30 to +30.",
+    "arch_twist_deg": "GRADUAL twist around z-axis along the arch [deg]. Default 0. Workshop range -45 to +45.",
+    "junction_blend_mm": "Cubic-Bezier blend width at each arch junction [mm]. Default 12. 0 = sharp circular-arc corners.",
+    "arch_shape": "Arch parametrisation: 'circle' (constraint H <= W <= 2H) or 'ellipse' (any positive W,H). Default circle.",
+    "delta_3": "SynthAorta delta_3 multiplier for the cos(2w|x|) Fourier term. 0 = planar, 1 = SynthAorta nominal. Default 0.",
+    "delta_4": "SynthAorta delta_4 multiplier for the sin(2w|x|) Fourier term. 0 = planar, 1 = SynthAorta nominal. Default 0.",
+    "segments_radial": "Circumferential ring vertices. Default 96. Workshop range 32-192.",
+    "curve_samples": "Total centreline sample count. Default 300. Workshop range 100-600.",
+    "arch_span_mm": "Optional alternate parametrisation: horizontal arch extent [mm]. Use WITH arch_height_mm to override arch_R_c + arch_angle_deg.",
+    "arch_height_mm": "Optional alternate parametrisation: arch peak height above ascending top [mm]. Pair with arch_span_mm."
+  },
+
+  "mode": "single",
+  "geometry": "healthy_arch_v2",
+  "case_id": "reference_v2",
+
+  "params": {
+    "r_ascending": 13.7,
+    "r_arch": 13.0,
+    "r_descending": 12.2,
+    "taper_mode": "smoothstep",
+    "ascending_length": 50.0,
+    "descending_length": 200.0,
+    "arch_R_c": 40.4,
+    "arch_angle_deg": 180.0,
+    "arch_tilt_deg": 0.0,
+    "arch_twist_deg": 0.0,
+    "junction_blend_mm": 12.0,
+    "arch_shape": "circle",
+    "delta_3": 0.0,
+    "delta_4": 0.0,
+    "segments_radial": 96,
+    "curve_samples": 300
+  }
+}

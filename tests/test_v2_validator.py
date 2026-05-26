@@ -210,7 +210,7 @@ def test_all_shipped_specs_validate(specs_v2_dir: Path) -> None:
     import json
 
     files = sorted(specs_v2_dir.glob("*.json"))
-    assert len(files) >= 8, f"Expected ≥8 example specs in specs_v2/, found {len(files)}"
+    assert len(files) >= 2, f"Expected ≥2 example specs in specs_v2/, found {len(files)}"
     for f in files:
         payload = json.loads(f.read_text())
         validate_spec(payload, source=f.name)

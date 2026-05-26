@@ -120,13 +120,8 @@ def test_unknown_mode_raises() -> None:
     ("spec_name", "expected_n"),
     [
         ("single_baseline_v2.json", 1),
-        ("single_span_height_v2.json", 1),
-        ("sweep_r_ascending_v2.json", 10),
-        ("sweep_R_c_v2.json", 10),
-        ("sweep_arch_angle_v2.json", 10),
-        ("sweep_arch_tilt_v2.json", 10),
+        ("reference_v2.json", 1),
         ("sample_sobol_synthaorta_v2.json", 256),
-        ("sample_sobol_synthaorta_nonplanar_v2.json", 256),
     ],
 )
 def test_shipped_spec_produces_expected_case_count(spec_name: str, expected_n: int) -> None:

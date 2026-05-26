@@ -1,0 +1,38 @@
+{
+  "schema_version": "3.0",
+  "name": "reference_v3",
+  "_doc": "Full v3 (cli_v3.py) parameter reference. Every knob set explicitly to its default; runnable as a single-mode smoke test. The _comments block annotates each parameter (top-level _* keys are ignored by the validator).",
+
+  "_comments": {
+    "r_inlet": "Inlet (ascending) tube radius [mm]. Default 14. Workshop range 8-22.",
+    "r_outlet": "Outlet (descending) tube radius [mm]. Default 10. Workshop range 8-20.",
+    "arch_radius_mm": "TUBE cross-section radius at the arch segment [mm]. Default 0 = midpoint of r_inlet/r_outlet. NOT to be confused with arch_R_c_mm (centerline curvature). Workshop range 8-22.",
+    "taper_mode": "Lumen taper between r_inlet -> arch_radius_mm -> r_outlet: smoothstep / linear / piecewise. Default smoothstep.",
+    "arch_width_mm": "Arch horizontal extent ascending->descending [mm]. Default 90. Pair with arch_height_mm; or use arch_R_c_mm as a shortcut.",
+    "arch_height_mm": "Arch peak height above ascending top [mm]. Default 45. Pair with arch_width_mm; circle mode requires H <= W <= 2H.",
+    "arch_shape": "'circle' (constraint H <= W <= 2H) or 'ellipse' (any positive W,H). Default circle.",
+    "arch_R_c_mm": "CENTERLINE curvature radius shortcut [mm]. When > 0, derives arch_width_mm and arch_height_mm. Default 0 (off, use W+H directly). Workshop range 0-100.",
+    "torsion_deg": "RIGID tilt of arch+descending around inlet z-axis [deg]. Default 0. Workshop range -30 to +30.",
+    "twist_deg": "GRADUAL twist along the arch [deg]; produces non-planar 3D curve. Default 0. Workshop range -45 to +45.",
+    "ascending_length": "Straight ascending segment length before the arch [mm]. Default 50. Workshop range 40-90.",
+    "descending_length": "Straight descending segment length after the arch [mm]. Default 200. Workshop range 60-300."
+  },
+
+  "mode": "single",
+  "geometry": "healthy_arch_v3",
+  "case_id": "reference_v3",
+
+  "params": {
+    "r_inlet": 14.0,
+    "r_outlet": 10.0,
+    "arch_radius_mm": 0.0,
+    "taper_mode": "smoothstep",
+    "arch_width_mm": 90.0,
+    "arch_height_mm": 45.0,
+    "arch_shape": "circle",
+    "torsion_deg": 0.0,
+    "twist_deg": 0.0,
+    "ascending_length": 50.0,
+    "descending_length": 200.0
+  }
+}
